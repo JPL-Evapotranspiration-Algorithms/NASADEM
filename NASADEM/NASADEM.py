@@ -15,10 +15,10 @@ from shapely.geometry import Polygon
 # filename = "/Users/halverso/Downloads/NASADEM_HGT_n00e127.zip"
 # URI = "zip:///Users/halverso/Downloads/NASADEM_HGT_n00e127.zip!/n00e127.hgt"
 import colored_logging as cl
-from ..LPDAAC import LPDAACDataPool
+from .LPDAAC import LPDAACDataPool
 from rasters import Raster, RasterGeometry, RasterGrid
 
-from ..timer import Timer
+from .timer import Timer
 import pandas as pd
 
 DEFAULT_WORKING_DIRECTORY = "."

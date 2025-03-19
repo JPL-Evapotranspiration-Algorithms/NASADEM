@@ -25,7 +25,10 @@ from dateutil import parser
 from pycksum import cksum
 
 import colored_logging as cl
-from ..exit_codes import DownloadFailed
+
+
+class DownloadFailed(Exception):
+    pass
 
 CONNECTION_CLOSE = {
     "Connection": "close",
@@ -51,7 +54,7 @@ class LPDAACServerUnreachable(ConnectionError):
 class LPDAACDataPool:
     logger = logging.getLogger(__name__)
     DEFAULT_CHUNK_SIZE = 2 ** 20
-    DATE_REGEX = re.compile('^(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$')
+    DATE_REGEX = re.compile(r'^(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$')
     DEFAULT_REMOTE = DEFAULT_REMOTE
 
     def __init__(self, username: str = None, password: str = None, remote: str = None, offline_ok: bool = False):

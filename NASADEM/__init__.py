@@ -1,1 +1,1 @@
-from .SRTM import *
+from .NASADEM import *
