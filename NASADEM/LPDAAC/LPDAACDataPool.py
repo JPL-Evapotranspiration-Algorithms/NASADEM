@@ -70,10 +70,10 @@ class LPDAACDataPool:
 
         if username is None or password is None:
             if not "LPDAAC_USERNAME" in os.environ or not "LPDAAC_PASSWORD" in os.environ:
-                raise RuntimeError("Missing environment variable 'LPDAAC_USERNAME' or 'LPDAAC_PASSWORD'")
-
-            username = os.environ["LPDAAC_USERNAME"]
-            password = os.environ["LPDAAC_PASSWORD"]
+                logger.warning("missing environment variable 'LPDAAC_USERNAME' or 'LPDAAC_PASSWORD'")
+            else:
+                username = os.environ["LPDAAC_USERNAME"]
+                password = os.environ["LPDAAC_PASSWORD"]
 
         self._remote = remote
         self._username = username
