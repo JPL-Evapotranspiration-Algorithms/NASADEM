@@ -1,4 +1,4 @@
-# http://e4ftl01.cr.usgs.gov/MEASURES/SRTMIMGM.003/2000.02.11/N20E054.SRTMIMGM.num.zip
+from typing import Union
 import json
 import logging
 import os
@@ -11,24 +11,22 @@ from zipfile import ZipFile
 import numpy as np
 from shapely.geometry import Polygon
 
-# URL = "https://e4ftl01.cr.usgs.gov/MEASURES/NASADEM_HGT.001/2000.02.11/NASADEM_HGT_n00e127.zip"
-# filename = "/Users/halverso/Downloads/NASADEM_HGT_n00e127.zip"
-# URI = "zip:///Users/halverso/Downloads/NASADEM_HGT_n00e127.zip!/n00e127.hgt"
 import colored_logging as cl
 from .LPDAAC import LPDAACDataPool
 from rasters import Raster, RasterGeometry, RasterGrid
+import rasters
 
 from .timer import Timer
 import pandas as pd
 
-DEFAULT_WORKING_DIRECTORY = "."
-DEFAULT_DOWNLOAD_DIRECTORY = "SRTM_directory"
+DEFAULT_WORKING_DIRECTORY = join("~", "data", "NASADEM")
+DEFAULT_DOWNLOAD_DIRECTORY = DEFAULT_WORKING_DIRECTORY
 
 SRTM_FILENAMES_CSV = join(abspath(dirname(__file__)), "filenames.csv")
 
 logger = logging.getLogger(__name__)
 
-class SRTMGranule:
+class NASADEMGranule:
     def __init__(self, filename: str):
         if not exists(filename):
             raise IOError(f"SRTM file not found: {filename}")
@@ -90,7 +88,7 @@ class TileNotAvailable(ValueError):
     pass
 
 
-class SRTM(LPDAACDataPool):
+class NASADEMConnection(LPDAACDataPool):
     # logger = logging.getLogger(__name__)
 
     def __init__(
@@ -101,7 +99,7 @@ class SRTM(LPDAACDataPool):
             working_directory: str = None,
             download_directory: str = None,
             offline_ok: bool = False):
-        super(SRTM, self).__init__(username=username, password=password, remote=remote, offline_ok=offline_ok)
+        super(NASADEMConnection, self).__init__(username=username, password=password, remote=remote, offline_ok=offline_ok)
 
         if working_directory is None:
             working_directory = DEFAULT_WORKING_DIRECTORY
@@ -111,7 +109,7 @@ class SRTM(LPDAACDataPool):
         logger.info(f"SRTM working directory: {cl.dir(working_directory)}")
 
         if download_directory is None:
-            download_directory = join(working_directory, DEFAULT_DOWNLOAD_DIRECTORY)
+            download_directory = DEFAULT_DOWNLOAD_DIRECTORY
 
         download_directory = abspath(expanduser(download_directory))
 
@@ -166,7 +164,7 @@ class SRTM(LPDAACDataPool):
 
         return self.tiles_intersecting_bbox(lon_min, lat_min, lon_max, lat_max)
 
-    def tiles(self, geometry: Polygon or RasterGeometry) -> List[str]:
+    def tiles(self, geometry: Union[Polygon, RasterGeometry]) -> List[str]:
         if isinstance(geometry, Polygon):
             return self.tiles_intersecting_polygon(geometry)
         elif isinstance(geometry, RasterGeometry):
@@ -174,7 +172,7 @@ class SRTM(LPDAACDataPool):
         else:
             raise ValueError("invalid target geometry")
 
-    def download_tile(self, tile: str) -> SRTMGranule:
+    def download_tile(self, tile: str) -> NASADEMGranule:
         URL = self.tile_URL(tile)
         filename_base = posixpath.basename(URL)
 
@@ -185,36 +183,9 @@ class SRTM(LPDAACDataPool):
         makedirs(directory, exist_ok=True)
         logger.info(f"acquiring SRTM tile: {cl.val(tile)} URL: {cl.URL(URL)}")
         filename = self.download_URL(URL, directory)
-        granule = SRTMGranule(filename)
+        granule = NASADEMGranule(filename)
 
         return granule
-
-    # def ocean(self, geometry: RasterGeometry) -> Raster:
-    #     """
-    #     digital elevation model ocean (zero elevation) from the Shuttle Rader Topography Mission (SRTM)
-    #     :param geometry: target geometry
-    #     :return: raster of elevation
-    #     """
-    #     result = None
-    #     tiles = self.tiles(geometry)
-    #
-    #     for tile in tiles:
-    #         # logger.info(f"acquiring SRTM tile {tile}")
-    #         try:
-    #             granule = self.download_tile(tile)
-    #         except TileNotAvailable as e:
-    #             logger.warning(e)
-    #             continue
-    #
-    #         image = granule.ocean
-    #         image_projected = image.to_geometry(geometry)
-    #
-    #         if result is None:
-    #             result = image_projected
-    #         else:
-    #             result = rasters.where(np.isnan(result), image_projected, result)
-    #
-    #     return result
 
     def swb(self, geometry: RasterGeometry) -> Raster:
         """
@@ -276,3 +247,5 @@ class SRTM(LPDAACDataPool):
         :return: raster of elevation
         """
         return self.elevation_m(geometry=geometry) / 1000
+
+NASADEM = NASADEMConnection()
