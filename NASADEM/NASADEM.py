@@ -98,7 +98,7 @@ class NASADEMConnection(LPDAACDataPool):
             remote: str = None,
             working_directory: str = None,
             download_directory: str = None,
-            offline_ok: bool = False):
+            offline_ok: bool = True):
         super(NASADEMConnection, self).__init__(username=username, password=password, remote=remote, offline_ok=offline_ok)
 
         if working_directory is None:
@@ -137,12 +137,18 @@ class NASADEMConnection(LPDAACDataPool):
 
         return self._filenames
 
-    def tile_URL(self, tile):
+    def tile_URL(self, tile: str) -> str:
         return posixpath.join(
             self.remote,
             "MEASURES",
             "NASADEM_HGT.001",
             "2000.02.11",
+            f"NASADEM_HGT_{tile.lower()}.zip"
+        )
+    
+    def tile_filename(self, tile: str) -> str:
+        return join(
+            self.download_directory,
             f"NASADEM_HGT_{tile.lower()}.zip"
         )
 
@@ -173,16 +179,20 @@ class NASADEMConnection(LPDAACDataPool):
             raise ValueError("invalid target geometry")
 
     def download_tile(self, tile: str) -> NASADEMGranule:
-        URL = self.tile_URL(tile)
-        filename_base = posixpath.basename(URL)
+        filename = self.tile_filename(tile)
 
-        if filename_base not in self.filenames:
-            raise TileNotAvailable(f"SRTM does not cover tile {tile}")
+        if not exists(filename):
+            URL = self.tile_URL(tile)
+            filename_base = posixpath.basename(URL)
 
-        directory = self.download_directory
-        makedirs(directory, exist_ok=True)
-        logger.info(f"acquiring SRTM tile: {cl.val(tile)} URL: {cl.URL(URL)}")
-        filename = self.download_URL(URL, directory)
+            if filename_base not in self.filenames:
+                raise TileNotAvailable(f"SRTM does not cover tile {tile}")
+
+            directory = self.download_directory
+            makedirs(directory, exist_ok=True)
+            logger.info(f"acquiring SRTM tile: {cl.val(tile)} URL: {cl.URL(URL)}")
+            filename = self.download_URL(URL, directory)
+            
         granule = NASADEMGranule(filename)
 
         return granule
