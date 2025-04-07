@@ -57,7 +57,7 @@ class LPDAACDataPool:
     DATE_REGEX = re.compile(r'^(19|20)\d\d[- /.](0[1-9]|1[012])[- /.](0[1-9]|[12][0-9]|3[01])$')
     DEFAULT_REMOTE = DEFAULT_REMOTE
 
-    def __init__(self, username: str = None, password: str = None, remote: str = None, offline_ok: bool = False):
+    def __init__(self, username: str = None, password: str = None, remote: str = None, offline_ok: bool = True):
         if remote is None:
             remote = DEFAULT_REMOTE
 
@@ -85,14 +85,15 @@ class LPDAACDataPool:
 
         self._listings = {}
 
-        try:
-            self._authenticate()
-            self._check_remote()
-        except Exception as e:
-            if self.offline_ok:
-                logger.warning("unable to connect to LP-DAAC data pool")
-            else:
-                raise e
+        if not self.offline_ok:
+            try:
+                self._authenticate()
+                self._check_remote()
+            except Exception as e:
+                if self.offline_ok:
+                    logger.warning("unable to connect to LP-DAAC data pool")
+                else:
+                    raise e
 
     def _authenticate(self):
         try:
