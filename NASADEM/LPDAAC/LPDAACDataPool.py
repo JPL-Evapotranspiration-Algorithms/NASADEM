@@ -15,6 +15,8 @@ from os.path import exists
 from os.path import getsize
 from os.path import isdir
 from os.path import join
+from os.path import abspath
+from os.path import expanduser
 from time import sleep
 from typing import List, OrderedDict
 
@@ -128,7 +130,7 @@ class LPDAACDataPool:
                 raise ConnectionError(message)
 
     def _check_remote(self):
-        logger.info(f"checking URL: {cl.URL(self.remote)}")
+        logger.debug(f"checking URL: {cl.URL(self.remote)}")
 
         try:
             response = requests.head(self.remote, headers=CONNECTION_CLOSE)
@@ -145,7 +147,7 @@ class LPDAACDataPool:
                 raise LPDAACServerUnreachable(message)
 
         if status == 200:
-            logger.info(
+            logger.debug(
                 "remote verified with status " + cl.val(200) +
                 " in " + cl.time(f"{duration:0.2f}") +
                 " seconds: " + cl.URL(self.remote))
@@ -307,7 +309,7 @@ class LPDAACDataPool:
         else:
             metadata_filename = f"{download_location}.xml"
 
-        makedirs(dirname(metadata_filename), exist_ok=True)
+        makedirs(abspath(dirname(expanduser(metadata_filename))), exist_ok=True)
 
         if XML_retries is None:
             XML_retries = XML_RETRIES
@@ -325,8 +327,8 @@ class LPDAACDataPool:
 
         while XML_retries > 0:
             XML_retries -= 1
-            command = f"wget -nc -c --user {self._username} --password {self._password} -O {metadata_filename} {metadata_URL}"
-            logger.info(command)
+            command = f"wget -nc -c --user {self._username} --password {self._password} -O {abspath(expanduser(metadata_filename))} {metadata_URL}"
+            # logger.info(command)
             os.system(command)
 
             if not exists(metadata_filename):
@@ -350,12 +352,12 @@ class LPDAACDataPool:
                 continue
 
             try:
-                with open(metadata_filename, "r") as file:
+                with open(abspath(expanduser(metadata_filename)), "r") as file:
                     metadata = xmltodict.parse(file.read())
             except Exception as e:
                 logger.warning(e)
                 logger.warning(f"unable to parse metadata file: {metadata_filename}")
-                os.remove(metadata_filename)
+                os.remove(abspath(expanduser(metadata_filename)))
                 logger.warning(f"waiting {XML_timeout_seconds} for retry")
                 sleep(XML_timeout_seconds)
                 continue
@@ -372,7 +374,7 @@ class LPDAACDataPool:
 
         logger.info(
             f"metadata retrieved {checksum_type} checksum: {cl.val(remote_checksum)} size: {cl.val(remote_filesize)} URL: {cl.URL(metadata_URL)}")
-        makedirs(dirname(filename), exist_ok=True)
+        makedirs(abspath(dirname(expanduser(filename))), exist_ok=True)
         logger.info(f"downloading {cl.URL(URL)} -> {cl.file(filename)}")
 
         # Use a temporary file for downloading
@@ -382,8 +384,8 @@ class LPDAACDataPool:
             download_retries -=1
 
             try:
-                if exists(temporary_filename):
-                    temporary_filesize = self.get_local_filesize(temporary_filename)
+                if exists(abspath(expanduser(temporary_filename))):
+                    temporary_filesize = self.get_local_filesize(abspath(expanduser(temporary_filename)))
 
                     if temporary_filesize > remote_filesize:
                         logger.warning(
@@ -391,11 +393,11 @@ class LPDAACDataPool:
                         remove(temporary_filename)
 
                     elif temporary_filesize == remote_filesize:
-                        local_checksum = self.get_local_checksum(temporary_filename, checksum_type=checksum_type)
+                        local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
 
                         if local_checksum == remote_checksum:
                             try:
-                                shutil.move(temporary_filename, filename)
+                                shutil.move(abspath(expanduser(temporary_filename)), abspath(expanduser(filename)))
                             except Exception as e:
                                 if exists(filename):
                                     logger.warning(f"unable to move temporary file: {temporary_filename}")
@@ -408,27 +410,27 @@ class LPDAACDataPool:
                         else:
                             logger.warning(
                                 f"removing corrupted file with local checksum {local_checksum} and remote checksum {remote_checksum}: {temporary_filename}")
-                            remove(temporary_filename)
+                            remove(abspath(expanduser(temporary_filename)))
                     else:
                         logger.info(f"resuming incomplete download: {cl.file(temporary_filename)}")
 
-                command = f"wget -nc -c --user {self._username} --password {self._password} -O {temporary_filename} {URL}"
-                logger.info(command)
+                command = f"wget -nc -c --user {self._username} --password {self._password} -O {abspath(expanduser(temporary_filename))} {URL}"
+                # logger.info(command)
                 os.system(command)
 
-                if not exists(temporary_filename):
+                if not exists(abspath(expanduser(temporary_filename))):
                     raise ConnectionError(f"unable to download URL: {URL}")
 
-                local_filesize = self.get_local_filesize(temporary_filename)
-                local_checksum = self.get_local_checksum(temporary_filename, checksum_type=checksum_type)
+                local_filesize = self.get_local_filesize(abspath(expanduser(temporary_filename)))
+                local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
 
                 if local_filesize != remote_filesize or local_checksum != remote_checksum:
-                    os.remove(temporary_filename)
+                    os.remove(abspath(expanduser(temporary_filename)))
                     raise ConnectionError(
                         f"removing corrupted file with local filesize {local_filesize} remote filesize {remote_filesize} local checksum {local_checksum} remote checksum {remote_checksum}: {temporary_filename}")
 
                 # Download successful, rename the temporary file to its proper name
-                shutil.move(temporary_filename, filename)
+                shutil.move(abspath(expanduser(temporary_filename)), abspath(expanduser(filename)))
 
                 logger.info(
                     f"successful download with filesize {cl.val(local_filesize)} checksum {cl.val(local_checksum)}: {cl.file(filename)}")
