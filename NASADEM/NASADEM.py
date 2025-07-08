@@ -104,14 +104,14 @@ class NASADEMConnection(LPDAACDataPool):
         if working_directory is None:
             working_directory = DEFAULT_WORKING_DIRECTORY
 
-        working_directory = abspath(expanduser(working_directory))
+        # working_directory = abspath(expanduser(working_directory))
 
         # logger.info(f"SRTM working directory: {cl.dir(working_directory)}")
 
         if download_directory is None:
             download_directory = DEFAULT_DOWNLOAD_DIRECTORY
 
-        download_directory = abspath(expanduser(download_directory))
+        # download_directory = abspath(expanduser(download_directory))
 
         # logger.info(f"SRTM download directory: {cl.dir(download_directory)}")
 
