@@ -3,7 +3,6 @@ import pytest
 # List of dependencies
 dependencies = [
     "colored_logging",
-    "pycksum",
     "rasters",
     "xmltodict"
 ]
