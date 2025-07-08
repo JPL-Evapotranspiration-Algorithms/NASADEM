@@ -16,7 +16,6 @@ classifiers = [
 ]
 dependencies = [
     "colored-logging",
-    "pycksum",
     "rasters",
     "sentinel-tiles",
     "xmltodict"
