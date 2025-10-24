@@ -13,7 +13,7 @@ from shapely.geometry import Polygon
 
 import colored_logging as cl
 from .LPDAAC import LPDAACDataPool
-from rasters import Raster, RasterGeometry, RasterGrid
+from rasters import Raster, RasterGeometry, RasterGrid, Point, MultiPoint
 import rasters
 
 from .timer import Timer
@@ -42,15 +42,19 @@ class NASADEMGranule:
     def hgt_URI(self) -> str:
         return f"zip://{self.filename}!/{self.tile.lower()}.hgt"
 
-    @property
-    def elevation_m(self) -> Raster:
+
+    def get_elevation_m(self, geometry: Union[RasterGeometry, Point, MultiPoint] = None) -> Raster:
         URI = self.hgt_URI
         logger.info(f"loading elevation: {cl.URL(URI)}")
-        data = Raster.open(URI)
-        data = rasters.where(data == data.nodata, np.nan, data.astype(np.float32))
-        data.nodata = np.nan
+        data = Raster.open(URI, geometry=geometry)
+
+        if isinstance(data, Raster):
+            data = rasters.where(data == data.nodata, np.nan, data.astype(np.float32))
+            data.nodata = np.nan
 
         return data
+
+    elevation_m = property(get_elevation_m)
 
     # @property
     # def ocean(self) -> Raster:
@@ -67,10 +71,12 @@ class NASADEMGranule:
     def swb_URI(self) -> str:
         return f"zip://{self.filename}!/{self.tile.lower()}.swb"
 
-    @property
-    def swb(self) -> Raster:
+    def get_swb(self, geometry: Union[RasterGeometry, Point, MultiPoint] = None) -> Raster:
         URI = self.swb_URI
-        geometry = self.geometry
+        
+        if geometry is None:
+            geometry = self.geometry
+
         filename = self.filename
         member_name = f"{self.tile.lower()}.swb"
         logger.info(f"loading swb: {cl.URL(URI)}")
@@ -82,6 +88,8 @@ class NASADEMGranule:
         data = data != 0
 
         return data
+    
+    swb = property(get_swb)
 
 
 class TileNotAvailable(ValueError):
@@ -163,15 +171,25 @@ class NASADEMConnection(LPDAACDataPool):
 
         return self.tiles_intersecting_bbox(lon_min, lat_min, lon_max, lat_max)
 
-    def tiles(self, geometry: Union[Polygon, RasterGeometry]) -> List[str]:
+    def tiles_intersecting_point(self, point: Point):
+        return self.tiles_intersecting_bbox(point.x, point.y, point.x, point.y)
+
+    def tiles_intersecting_multipoint(self, multipoint: MultiPoint):
+        return self.tiles_intersecting_bbox(multipoint.xmin, multipoint.ymin, multipoint.xmax, multipoint.ymax)
+
+    def tiles(self, geometry: Union[Polygon, RasterGeometry, Point, MultiPoint]) -> List[str]:
         if isinstance(geometry, Polygon):
             return self.tiles_intersecting_polygon(geometry)
         elif isinstance(geometry, RasterGeometry):
             return self.tiles_intersecting_polygon(geometry.boundary_latlon)
+        elif isinstance(geometry, Point):
+            return self.tiles_intersecting_point(geometry)
+        elif isinstance(geometry, MultiPoint):
+            return self.tiles_intersecting_multipoint(geometry)
         else:
             raise ValueError("invalid target geometry")
 
-    def download_tile(self, tile: str) -> NASADEMGranule:
+    def download_tile(self, tile: str, enforce_checksum: bool = False) -> NASADEMGranule:
         filename = self.tile_filename(tile)
 
         if not exists(filename):
@@ -184,18 +202,21 @@ class NASADEMConnection(LPDAACDataPool):
             directory = self.download_directory
             makedirs(directory, exist_ok=True)
             logger.info(f"acquiring SRTM tile: {cl.val(tile)} URL: {cl.URL(URL)}")
-            filename = self.download_URL(URL, directory)
+            filename = self.download_URL(URL, directory, enforce_checksum=enforce_checksum)
 
         granule = NASADEMGranule(filename)
 
         return granule
 
-    def swb(self, geometry: RasterGeometry) -> Raster:
+    def swb(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
         digital elevation model surface water body from the Shuttle Rader Topography Mission (SRTM)
         :param geometry: target geometry
-        :return: raster of elevation
+        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
         """
+        if isinstance(geometry, (Point, MultiPoint)):
+            return self._extract_point_values(geometry, 'swb')
+        
         result = Raster(np.full(geometry.shape, np.nan, dtype=np.float32), geometry=geometry)
         tiles = self.tiles(geometry)
 
@@ -216,12 +237,15 @@ class NASADEMConnection(LPDAACDataPool):
 
         return result
 
-    def elevation_m(self, geometry: RasterGeometry) -> Raster:
+    def elevation_m(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
         digital elevation model (elevation_km) in meters from the Shuttle Rader Topography Mission (SRTM)
         :param geometry: target geometry
-        :return: raster of elevation
+        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
         """
+        if isinstance(geometry, MultiPoint):
+            return self._extract_point_values(geometry, 'elevation_m')
+        
         result = None
         tiles = self.tiles(geometry)
 
@@ -233,22 +257,87 @@ class NASADEMConnection(LPDAACDataPool):
                 logger.warning(e)
                 continue
 
-            elevation_m = granule.elevation_m
-            elevation_projected = elevation_m.to_geometry(geometry)
+            elevation_m = granule.get_elevation_m(geometry=geometry)
+            print(elevation_m)
+            # elevation_projected = elevation_m.to_geometry(geometry)
 
             if result is None:
-                result = elevation_projected
-            else:
-                result = rasters.where(np.isnan(result), elevation_projected, result)
+                result = elevation_m
+            elif isinstance(result, Raster):
+                result = rasters.where(np.isnan(result), elevation_m, result)
 
         return result
 
-    def elevation_km(self, geometry: RasterGeometry) -> Raster:
+    def elevation_km(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
         digital elevation model (elevation_km) in kilometers from the Shuttle Rader Topography Mission (SRTM)
         :param geometry: target geometry
-        :return: raster of elevation
+        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
         """
         return self.elevation_m(geometry=geometry) / 1000
+
+    def _extract_point_values(self, geometry: Union[Point, MultiPoint], data_type: str):
+        """
+        Extract values at point locations from NASADEM data
+        :param geometry: Point or MultiPoint geometry
+        :param data_type: 'elevation_m' or 'swb'
+        :return: single value for Point, array of values for MultiPoint
+        """
+        tiles = self.tiles(geometry)
+        
+        if isinstance(geometry, Point):
+            points = [geometry]
+        else:
+            points = [Point(geom.x, geom.y) for geom in geometry.geoms]
+        
+        values = []
+        
+        for point in points:
+            point_value = np.nan
+            
+            for tile in tiles:
+                try:
+                    granule = self.download_tile(tile)
+                except TileNotAvailable as e:
+                    logger.warning(e)
+                    continue
+                
+                # Get the appropriate data layer
+                if data_type == 'elevation_m':
+                    data_layer = granule.elevation_m
+                elif data_type == 'swb':
+                    data_layer = granule.swb.astype(np.float32)
+                else:
+                    raise ValueError(f"Unknown data type: {data_type}")
+                
+                # Check if point is within this tile's bounds
+                tile_geometry = data_layer.geometry
+                if (tile_geometry.x_min <= point.x <= tile_geometry.x_max and 
+                    tile_geometry.y_min <= point.y <= tile_geometry.y_max):
+                    
+                    # Extract value at point location
+                    try:
+                        point_raster = data_layer.to_point(point)
+                        if hasattr(point_raster, 'values') and len(point_raster.values) > 0:
+                            point_value = point_raster.values[0]
+                        else:
+                            point_value = np.nan
+                        if not np.isnan(point_value):
+                            break  # Found valid value, stop searching tiles
+                    except Exception as e:
+                        logger.warning(f"Failed to sample point ({point.x}, {point.y}) from tile {tile}: {e}")
+                        continue
+            
+            values.append(point_value)
+        
+        # Apply post-processing for swb
+        if data_type == 'swb':
+            values = [bool(v != 0) if not np.isnan(v) else False for v in values]
+        
+        # Return single value for Point, array for MultiPoint
+        if isinstance(geometry, Point):
+            return values[0]
+        else:
+            return np.array(values)
 
 NASADEM = NASADEMConnection()

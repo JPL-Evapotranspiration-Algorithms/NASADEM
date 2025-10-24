@@ -290,7 +290,8 @@ class LPDAACDataPool:
             XML_retries: int = None,
             XML_timeout_seconds: int = None,
             download_retries: int = None,
-            download_wait_seconds: int = None) -> str:
+            download_wait_seconds: int = None,
+            enforce_checksum: bool = False) -> str:
         if isdir(download_location):
             filename = join(download_location, posixpath.basename(URL))
         else:
@@ -393,9 +394,23 @@ class LPDAACDataPool:
                         remove(temporary_filename)
 
                     elif temporary_filesize == remote_filesize:
-                        local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
-
-                        if local_checksum == remote_checksum:
+                        # File size matches, now check if we need to validate checksum
+                        file_valid = True
+                        
+                        if enforce_checksum:
+                            local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
+                            
+                            if local_checksum != remote_checksum:
+                                logger.warning(
+                                    f"removing corrupted file with local checksum {local_checksum} and remote checksum {remote_checksum}: {temporary_filename}")
+                                remove(abspath(expanduser(temporary_filename)))
+                                file_valid = False
+                            else:
+                                logger.info(f"checksum validation passed: {local_checksum}")
+                        else:
+                            logger.info("skipping checksum validation (enforce_checksum=False)")
+                        
+                        if file_valid:
                             try:
                                 shutil.move(abspath(expanduser(temporary_filename)), abspath(expanduser(filename)))
                             except Exception as e:
@@ -407,10 +422,6 @@ class LPDAACDataPool:
                                 raise DownloadFailed(f"unable to move temporary file: {temporary_filename}")
 
                             return filename
-                        else:
-                            logger.warning(
-                                f"removing corrupted file with local checksum {local_checksum} and remote checksum {remote_checksum}: {temporary_filename}")
-                            remove(abspath(expanduser(temporary_filename)))
                     else:
                         logger.info(f"resuming incomplete download: {cl.file(temporary_filename)}")
 
@@ -422,18 +433,36 @@ class LPDAACDataPool:
                     raise ConnectionError(f"unable to download URL: {URL}")
 
                 local_filesize = self.get_local_filesize(abspath(expanduser(temporary_filename)))
-                local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
-
-                if local_filesize != remote_filesize or local_checksum != remote_checksum:
+                
+                # Step 1: Validate file size (always required)
+                if local_filesize != remote_filesize:
                     os.remove(abspath(expanduser(temporary_filename)))
                     raise ConnectionError(
-                        f"removing corrupted file with local filesize {local_filesize} remote filesize {remote_filesize} local checksum {local_checksum} remote checksum {remote_checksum}: {temporary_filename}")
+                        f"removing corrupted file with incorrect filesize - local: {local_filesize}, remote: {remote_filesize}: {temporary_filename}")
+                
+                # Step 2: Validate checksum (optional based on enforce_checksum flag)
+                if enforce_checksum:
+                    local_checksum = self.get_local_checksum(abspath(expanduser(temporary_filename)), checksum_type=checksum_type)
+                    
+                    if local_checksum != remote_checksum:
+                        os.remove(abspath(expanduser(temporary_filename)))
+                        raise ConnectionError(
+                            f"removing corrupted file with incorrect checksum - local: {local_checksum}, remote: {remote_checksum}: {temporary_filename}")
+                    
+                    logger.info(f"checksum validation passed: {local_checksum}")
+                else:
+                    logger.info("skipping checksum validation (enforce_checksum=False)")
+                    local_checksum = "skipped"
 
                 # Download successful, rename the temporary file to its proper name
                 shutil.move(abspath(expanduser(temporary_filename)), abspath(expanduser(filename)))
 
-                logger.info(
-                    f"successful download with filesize {cl.val(local_filesize)} checksum {cl.val(local_checksum)}: {cl.file(filename)}")
+                if enforce_checksum:
+                    logger.info(
+                        f"successful download with filesize {cl.val(local_filesize)} checksum {cl.val(local_checksum)}: {cl.file(filename)}")
+                else:
+                    logger.info(
+                        f"successful download with filesize {cl.val(local_filesize)} (checksum validation skipped): {cl.file(filename)}")
 
                 return filename
             except Exception as e:
