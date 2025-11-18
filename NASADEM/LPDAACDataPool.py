@@ -24,7 +24,7 @@ import requests
 import xmltodict
 from bs4 import BeautifulSoup
 from dateutil import parser
-from ..cksum import cksum
+from .cksum import cksum
 
 import colored_logging as cl
 

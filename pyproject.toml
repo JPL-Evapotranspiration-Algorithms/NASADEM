@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "NASADEM"
-version = "1.4.0"
+version = "1.5.0"
 description = "Shuttle Radar Topography Mission (SRTM) Digital Elevation Model (DEM) search and download utility"
 readme = "README.md"
 authors = [
@@ -32,9 +32,6 @@ dev = [
     "pytest",
     "twine"
 ]
-
-[tool.setuptools.package-data]
-NASADEM = ["*.txt"]
 
 [project.urls]
 "Homepage" = "https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM"
