@@ -40,7 +40,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["NASADEM"]
-exclude = []
+exclude = ["notebooks", "notebooks.*", "tests", "tests.*"]
 
 [tool.pytest.ini_options]
 markers = [
