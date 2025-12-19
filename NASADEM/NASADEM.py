@@ -42,6 +42,7 @@ class NASADEMGranule:
         URI = self.hgt_URI
         logger.info(f"loading elevation: {cl.URL(URI)}")
         data = Raster.open(URI, geometry=geometry)
+        logger.info(f"elevation data shape: {data.shape}, nodata: {data.nodata}")
 
         if isinstance(data, Raster):
             data = rasters.where(data == data.nodata, np.nan, data.astype(np.float32))
@@ -313,7 +314,7 @@ class NASADEMConnection:
         Returns:
             Elevation raster for RasterGeometry, elevation value(s) for Point/MultiPoint
         """
-        if isinstance(geometry, MultiPoint):
+        if isinstance(geometry, (Point, MultiPoint)):
             return self._extract_point_values(geometry, 'elevation_m')
         
         result = None
@@ -358,52 +359,76 @@ class NASADEMConnection:
         Returns:
             Single value for Point, array of values for MultiPoint
         """
-        tiles = self.tiles(geometry)
-        
         if isinstance(geometry, Point):
             points = [geometry]
         else:
             points = [Point(geom.x, geom.y) for geom in geometry.geoms]
         
-        values = []
+        # Group points by tile to minimize data loading
+        from collections import defaultdict
+        points_by_tile = defaultdict(list)
         
-        for point in points:
-            point_value = np.nan
+        for i, point in enumerate(points):
+            # Calculate which tile this point belongs to
+            lat, lon = point.y, point.x
+            tile = f"{'s' if lat < 0 else 'n'}{abs(int(np.floor(lat))):02d}{'w' if lon < 0 else 'e'}{abs(int(np.floor(lon))):03d}"
+            points_by_tile[tile].append((i, point))
+        
+        # Initialize results array
+        values = [np.nan] * len(points)
+        
+        # Process each tile only once
+        for tile, point_list in points_by_tile.items():
+            try:
+                granule = self.download_tile(tile)
+            except TileNotAvailable as e:
+                logger.warning(e)
+                continue
             
-            for tile in tiles:
-                try:
-                    granule = self.download_tile(tile)
-                except TileNotAvailable as e:
-                    logger.warning(e)
-                    continue
-                
-                # Get the appropriate data layer
+            # Load the full tile data
+            try:
                 if data_type == 'elevation_m':
-                    data_layer = granule.elevation_m
+                    data_layer = granule.get_elevation_m(geometry=None)
                 elif data_type == 'swb':
-                    data_layer = granule.swb.astype(np.float32)
+                    data_layer = granule.get_swb(geometry=None)
                 else:
                     raise ValueError(f"Unknown data type: {data_type}")
                 
-                # Check if point is within this tile's bounds
-                tile_geometry = data_layer.geometry
-                if (tile_geometry.x_min <= point.x <= tile_geometry.x_max and 
-                    tile_geometry.y_min <= point.y <= tile_geometry.y_max):
-                    
-                    # Extract value at point location
+                if not isinstance(data_layer, Raster):
+                    logger.warning(f"Expected Raster, got {type(data_layer)}")
+                    continue
+                
+                # Extract values for all points in this tile
+                for idx, point in point_list:
                     try:
-                        point_raster = data_layer.to_point(point)
-                        if hasattr(point_raster, 'values') and len(point_raster.values) > 0:
-                            point_value = point_raster.values[0]
-                        else:
-                            point_value = np.nan
-                        if not np.isnan(point_value):
-                            break  # Found valid value, stop searching tiles
+                        # Check if point is within tile bounds
+                        tile_geometry = data_layer.geometry
+                        if not (tile_geometry.x_min <= point.x <= tile_geometry.x_max and 
+                                tile_geometry.y_min <= point.y <= tile_geometry.y_max):
+                            continue
+                        
+                        # Convert geographic coordinates to pixel indices
+                        row = int((tile_geometry.y_max - point.y) / abs(tile_geometry.cell_height))
+                        col = int((point.x - tile_geometry.x_min) / abs(tile_geometry.cell_width))
+                        
+                        # Clip to array bounds
+                        row = max(0, min(row, data_layer.shape[0] - 1))
+                        col = max(0, min(col, data_layer.shape[1] - 1))
+                        
+                        # Extract the value
+                        value = float(data_layer.array[row, col])
+                        
+                        # Store if valid
+                        if not np.isnan(value) and value != data_layer.nodata:
+                            values[idx] = value
+                            
                     except Exception as e:
                         logger.warning(f"Failed to sample point ({point.x}, {point.y}) from tile {tile}: {e}")
                         continue
-            
-            values.append(point_value)
+                        
+            except Exception as e:
+                logger.warning(f"Failed to load data from tile {tile}: {e}")
+                continue
         
         # Apply post-processing for swb
         if data_type == 'swb':
