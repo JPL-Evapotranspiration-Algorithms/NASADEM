@@ -41,3 +41,8 @@ dev = [
 [tool.setuptools.packages.find]
 include = ["NASADEM"]
 exclude = []
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: marks tests as integration tests (may require network access)"
+]
