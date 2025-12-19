@@ -1,10 +1,12 @@
 import pytest
 
-# List of dependencies
+# List of dependencies for v2.0.0
 dependencies = [
     "colored_logging",
+    "earthaccess",
+    "numpy",
     "rasters",
-    "xmltodict"
+    "shapely"
 ]
 
 # Generate individual test functions for each dependency

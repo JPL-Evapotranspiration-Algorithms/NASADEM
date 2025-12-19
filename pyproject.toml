@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "NASADEM"
-version = "1.5.0"
+version = "2.0.0"
 description = "Shuttle Radar Topography Mission (SRTM) Digital Elevation Model (DEM) search and download utility"
 readme = "README.md"
 authors = [
@@ -16,9 +16,11 @@ classifiers = [
 ]
 dependencies = [
     "colored-logging",
+    "earthaccess>=0.8.0",
+    "numpy",
     "rasters>=1.14.0",
     "sentinel-tiles",
-    "xmltodict"
+    "shapely"
 ]
 
 requires-python = ">=3.10"
