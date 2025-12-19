@@ -13,6 +13,9 @@ clean:
 test:
 	pytest
 
+CI:
+	tox
+
 build:
 	python -m build
 

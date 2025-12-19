@@ -2,12 +2,12 @@ from typing import Union
 import json
 import logging
 import os
-import posixpath
 from os import makedirs
-from os.path import exists, splitext, basename, join, expanduser, abspath, dirname
+from os.path import exists, splitext, basename, join, expanduser, abspath
 from typing import List
 from zipfile import ZipFile
 
+import earthaccess
 import numpy as np
 from shapely.geometry import Polygon
 
@@ -15,15 +15,9 @@ import colored_logging as cl
 from rasters import Raster, RasterGeometry, RasterGrid, Point, MultiPoint
 import rasters
 
-import pandas as pd
-
-from .LPDAACDataPool import LPDAACDataPool
-
 
 DEFAULT_WORKING_DIRECTORY = join("~", "data", "NASADEM")
 DEFAULT_DOWNLOAD_DIRECTORY = DEFAULT_WORKING_DIRECTORY
-
-SRTM_FILENAMES_CSV = join(abspath(dirname(__file__)), "filenames.csv")
 
 logger = logging.getLogger(__name__)
 
@@ -97,62 +91,99 @@ class TileNotAvailable(ValueError):
     pass
 
 
-class NASADEMConnection(LPDAACDataPool):
-    # logger = logging.getLogger(__name__)
+class NASADEMConnection:
+    """
+    Connection to NASADEM data using NASA's earthaccess package.
+    
+    This class provides methods to search, download, and extract elevation data
+    from the NASADEM dataset via NASA's Earthdata Cloud infrastructure.
+    """
 
     def __init__(
             self,
             username: str = None,
             password: str = None,
-            remote: str = None,
             working_directory: str = None,
             download_directory: str = None,
-            offline_ok: bool = True):
-        super(NASADEMConnection, self).__init__(username=username, password=password, remote=remote, offline_ok=offline_ok)
+            persist_credentials: bool = False,
+            skip_auth: bool = False):
+        """
+        Initialize NASADEM connection.
+        
+        Args:
+            username: NASA Earthdata username (optional, can use .netrc or env vars)
+            password: NASA Earthdata password (optional, can use .netrc or env vars)
+            working_directory: Directory for working files
+            download_directory: Directory for downloaded tiles
+            persist_credentials: Whether to persist credentials to .netrc file
+            skip_auth: Skip authentication (useful for testing or when auth is handled separately)
+        """
+        # Authenticate with earthaccess (unless explicitly skipped)
+        if not skip_auth:
+            # Check if we're in a non-interactive environment (like CI)
+            # by checking for common CI environment variables
+            is_ci = any([
+                os.environ.get('CI'),
+                os.environ.get('GITHUB_ACTIONS'),
+                os.environ.get('TRAVIS'),
+                os.environ.get('CIRCLECI'),
+            ])
+            
+            # Only attempt login if we have credentials or are not in CI
+            if username and password:
+                earthaccess.login(username=username, password=password, persist=persist_credentials)
+            elif not is_ci:
+                # Will use .netrc, environment variables, or prompt interactively
+                earthaccess.login(persist=persist_credentials)
 
         if working_directory is None:
             working_directory = DEFAULT_WORKING_DIRECTORY
         self.working_directory = abspath(expanduser(working_directory))
-        # logger.info(f"SRTM working directory: {cl.dir(working_directory)}")
 
         if download_directory is None:
             download_directory = DEFAULT_DOWNLOAD_DIRECTORY
         self.download_directory = abspath(expanduser(download_directory))
-        # logger.info(f"SRTM download directory: {cl.dir(download_directory)}")
-
-        self._filenames = None
+        makedirs(self.download_directory, exist_ok=True)
 
     def __repr__(self):
         display_dict = {
-            "URL": self.remote,
-            "download_directory": self.download_directory
+            "download_directory": self.download_directory,
+            "working_directory": self.working_directory
         }
-
-        display_string = json.dumps(display_dict, indent=2)
-
-        return display_string
-
-    @property
-    def filenames(self) -> List[str]:
-        if self._filenames is None:
-            self._filenames = list(pd.read_csv(SRTM_FILENAMES_CSV)["filename"])
-
-        return self._filenames
-
-    def tile_URL(self, tile: str) -> str:
-        return posixpath.join(
-            self.remote,
-            "MEASURES",
-            "NASADEM_HGT.001",
-            "2000.02.11",
-            f"NASADEM_HGT_{tile.lower()}.zip"
-        )
+        return json.dumps(display_dict, indent=2)
     
     def tile_filename(self, tile: str) -> str:
+        """Get the local filename for a tile."""
         return join(
             self.download_directory,
-            f"NASADEM_HGT_{tile.lower()}.zip"
+            f"NASADEM_HGT_{tile.upper()}.zip"
         )
+
+    def search_tile(self, tile: str):
+        """
+        Search for a NASADEM tile using earthaccess.
+        
+        Args:
+            tile: Tile identifier (e.g., 'n34w118', 's10e142')
+            
+        Returns:
+            earthaccess granule result or None if not found
+        """
+        try:
+            # Search for the granule by tile name
+            results = earthaccess.search_data(
+                short_name='NASADEM_HGT',
+                version='001',
+                granule_name=f'*{tile.upper()}*'
+            )
+            
+            if results:
+                return results[0]
+            return None
+            
+        except Exception as e:
+            logger.warning(f"Error searching for tile {tile}: {e}")
+            return None
 
     def tiles_intersecting_bbox(self, lon_min, lat_min, lon_max, lat_max):
         tiles = []
@@ -190,30 +221,65 @@ class NASADEMConnection(LPDAACDataPool):
         else:
             raise ValueError("invalid target geometry")
 
-    def download_tile(self, tile: str, enforce_checksum: bool = False) -> NASADEMGranule:
+    def download_tile(self, tile: str) -> NASADEMGranule:
+        """
+        Download a NASADEM tile using earthaccess.
+        
+        Args:
+            tile: Tile identifier (e.g., 'n34w118', 's10e142')
+            
+        Returns:
+            NASADEMGranule object for the downloaded tile
+            
+        Raises:
+            TileNotAvailable: If the tile doesn't exist or can't be downloaded
+        """
         filename = self.tile_filename(tile)
 
         if not exists(filename):
-            URL = self.tile_URL(tile)
-            filename_base = posixpath.basename(URL)
+            logger.info(f"acquiring NASADEM tile: {cl.val(tile)}")
+            
+            # Search for the granule
+            granule = self.search_tile(tile)
+            
+            if not granule:
+                raise TileNotAvailable(f"NASADEM does not cover tile {tile}")
+            
+            try:
+                # Download the file using earthaccess
+                files = earthaccess.download(
+                    granule,
+                    local_path=self.download_directory
+                )
+                
+                if files:
+                    # earthaccess returns a list of downloaded files
+                    downloaded_file = files[0]
+                    
+                    # Rename to our expected filename if different
+                    if downloaded_file != filename:
+                        import shutil
+                        shutil.move(downloaded_file, filename)
+                    
+                    logger.info(f"downloaded NASADEM tile: {cl.file(filename)}")
+                else:
+                    raise TileNotAvailable(f"Failed to download tile {tile}")
+                    
+            except Exception as e:
+                logger.error(f"Error downloading tile {tile}: {e}")
+                raise TileNotAvailable(f"Failed to download tile {tile}: {e}")
 
-            if filename_base not in self.filenames:
-                raise TileNotAvailable(f"SRTM does not cover tile {tile}")
-
-            directory = self.download_directory
-            makedirs(directory, exist_ok=True)
-            logger.info(f"acquiring SRTM tile: {cl.val(tile)} URL: {cl.URL(URL)}")
-            filename = self.download_URL(URL, directory, enforce_checksum=enforce_checksum)
-
-        granule = NASADEMGranule(filename)
-
-        return granule
+        return NASADEMGranule(filename)
 
     def swb(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
-        digital elevation model surface water body from the Shuttle Rader Topography Mission (SRTM)
-        :param geometry: target geometry
-        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
+        Surface water body from NASADEM.
+        
+        Args:
+            geometry: Target geometry (RasterGeometry, Point, or MultiPoint)
+            
+        Returns:
+            Boolean raster for RasterGeometry, boolean value(s) for Point/MultiPoint
         """
         if isinstance(geometry, (Point, MultiPoint)):
             return self._extract_point_values(geometry, 'swb')
@@ -222,7 +288,6 @@ class NASADEMConnection(LPDAACDataPool):
         tiles = self.tiles(geometry)
 
         for tile in tiles:
-            # logger.info(f"acquiring SRTM tile {tile}")
             try:
                 granule = self.download_tile(tile)
             except TileNotAvailable as e:
@@ -240,9 +305,13 @@ class NASADEMConnection(LPDAACDataPool):
 
     def elevation_m(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
-        digital elevation model (elevation_km) in meters from the Shuttle Rader Topography Mission (SRTM)
-        :param geometry: target geometry
-        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
+        Digital elevation model in meters from NASADEM.
+        
+        Args:
+            geometry: Target geometry (RasterGeometry, Point, or MultiPoint)
+            
+        Returns:
+            Elevation raster for RasterGeometry, elevation value(s) for Point/MultiPoint
         """
         if isinstance(geometry, MultiPoint):
             return self._extract_point_values(geometry, 'elevation_m')
@@ -251,7 +320,6 @@ class NASADEMConnection(LPDAACDataPool):
         tiles = self.tiles(geometry)
 
         for tile in tiles:
-            # logger.info(f"acquiring SRTM tile {tile}")
             try:
                 granule = self.download_tile(tile)
             except TileNotAvailable as e:
@@ -259,8 +327,6 @@ class NASADEMConnection(LPDAACDataPool):
                 continue
 
             elevation_m = granule.get_elevation_m(geometry=geometry)
-            print(elevation_m)
-            # elevation_projected = elevation_m.to_geometry(geometry)
 
             if result is None:
                 result = elevation_m
@@ -271,18 +337,26 @@ class NASADEMConnection(LPDAACDataPool):
 
     def elevation_km(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
         """
-        digital elevation model (elevation_km) in kilometers from the Shuttle Rader Topography Mission (SRTM)
-        :param geometry: target geometry
-        :return: raster of elevation for RasterGeometry, values for Point/MultiPoint
+        Digital elevation model in kilometers from NASADEM.
+        
+        Args:
+            geometry: Target geometry (RasterGeometry, Point, or MultiPoint)
+            
+        Returns:
+            Elevation raster in km for RasterGeometry, elevation value(s) in km for Point/MultiPoint
         """
         return self.elevation_m(geometry=geometry) / 1000
 
     def _extract_point_values(self, geometry: Union[Point, MultiPoint], data_type: str):
         """
-        Extract values at point locations from NASADEM data
-        :param geometry: Point or MultiPoint geometry
-        :param data_type: 'elevation_m' or 'swb'
-        :return: single value for Point, array of values for MultiPoint
+        Extract values at point locations from NASADEM data.
+        
+        Args:
+            geometry: Point or MultiPoint geometry
+            data_type: 'elevation_m' or 'swb'
+            
+        Returns:
+            Single value for Point, array of values for MultiPoint
         """
         tiles = self.tiles(geometry)
         
@@ -341,4 +415,32 @@ class NASADEMConnection(LPDAACDataPool):
         else:
             return np.array(values)
 
-NASADEM = NASADEMConnection()
+
+# Lazy-loaded global instance for convenience
+_NASADEM_INSTANCE = None
+
+def _get_default_instance():
+    """Get or create the default NASADEM instance."""
+    global _NASADEM_INSTANCE
+    if _NASADEM_INSTANCE is None:
+        # In CI or testing environments, skip authentication by default
+        is_ci = any([
+            os.environ.get('CI'),
+            os.environ.get('GITHUB_ACTIONS'),
+            os.environ.get('TRAVIS'),
+            os.environ.get('CIRCLECI'),
+        ])
+        _NASADEM_INSTANCE = NASADEMConnection(skip_auth=is_ci)
+    return _NASADEM_INSTANCE
+
+# Create a proxy class that lazily initializes the connection
+class _NASADEMProxy:
+    """Proxy to lazily initialize the default NASADEM connection."""
+    
+    def __getattr__(self, name):
+        return getattr(_get_default_instance(), name)
+    
+    def __call__(self, *args, **kwargs):
+        return _get_default_instance()(*args, **kwargs)
+
+NASADEM = _NASADEMProxy()
