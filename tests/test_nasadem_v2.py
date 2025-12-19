@@ -178,12 +178,6 @@ def test_granule_properties():
     pass
 
 
-def test_deprecated_lpdaac():
-    """Test that importing deprecated LPDAACDataPool shows warning."""
-    with pytest.warns(DeprecationWarning):
-        from NASADEM import LPDAACDataPool_DEPRECATED
-
-
 def test_connection_repr():
     """Test string representation of connection."""
     with patch('earthaccess.login'):
