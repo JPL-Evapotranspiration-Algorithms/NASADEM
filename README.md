@@ -260,6 +260,12 @@ Some areas may not be covered by NASADEM (latitudes > 60°N or < 56°S). The err
 
 See [LICENSE](LICENSE) file.
 
+## Documentation
+
+- [Migration Guide](docs/Migration-Guide.md) - How to upgrade from v1.x to v2.0.0
+- [Changelog](docs/Changelog.md) - Version history and changes
+- [Release Summary](docs/Release-Summary.md) - Detailed v2.0.0 release notes
+
 ## Contributing
 
 Issues and pull requests are welcome at https://github.com/gregory-halverson/NASADEM
