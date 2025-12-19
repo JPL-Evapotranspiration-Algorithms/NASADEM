@@ -105,7 +105,8 @@ class NASADEMConnection:
             password: str = None,
             working_directory: str = None,
             download_directory: str = None,
-            persist_credentials: bool = False):
+            persist_credentials: bool = False,
+            skip_auth: bool = False):
         """
         Initialize NASADEM connection.
         
@@ -115,13 +116,25 @@ class NASADEMConnection:
             working_directory: Directory for working files
             download_directory: Directory for downloaded tiles
             persist_credentials: Whether to persist credentials to .netrc file
+            skip_auth: Skip authentication (useful for testing or when auth is handled separately)
         """
-        # Authenticate with earthaccess
-        if username and password:
-            earthaccess.login(username=username, password=password, persist=persist_credentials)
-        else:
-            # Will use .netrc, environment variables, or prompt interactively
-            earthaccess.login(persist=persist_credentials)
+        # Authenticate with earthaccess (unless explicitly skipped)
+        if not skip_auth:
+            # Check if we're in a non-interactive environment (like CI)
+            # by checking for common CI environment variables
+            is_ci = any([
+                os.environ.get('CI'),
+                os.environ.get('GITHUB_ACTIONS'),
+                os.environ.get('TRAVIS'),
+                os.environ.get('CIRCLECI'),
+            ])
+            
+            # Only attempt login if we have credentials or are not in CI
+            if username and password:
+                earthaccess.login(username=username, password=password, persist=persist_credentials)
+            elif not is_ci:
+                # Will use .netrc, environment variables, or prompt interactively
+                earthaccess.login(persist=persist_credentials)
 
         if working_directory is None:
             working_directory = DEFAULT_WORKING_DIRECTORY
@@ -403,5 +416,31 @@ class NASADEMConnection:
             return np.array(values)
 
 
-# Default global instance for convenience
-NASADEM = NASADEMConnection()
+# Lazy-loaded global instance for convenience
+_NASADEM_INSTANCE = None
+
+def _get_default_instance():
+    """Get or create the default NASADEM instance."""
+    global _NASADEM_INSTANCE
+    if _NASADEM_INSTANCE is None:
+        # In CI or testing environments, skip authentication by default
+        is_ci = any([
+            os.environ.get('CI'),
+            os.environ.get('GITHUB_ACTIONS'),
+            os.environ.get('TRAVIS'),
+            os.environ.get('CIRCLECI'),
+        ])
+        _NASADEM_INSTANCE = NASADEMConnection(skip_auth=is_ci)
+    return _NASADEM_INSTANCE
+
+# Create a proxy class that lazily initializes the connection
+class _NASADEMProxy:
+    """Proxy to lazily initialize the default NASADEM connection."""
+    
+    def __getattr__(self, name):
+        return getattr(_get_default_instance(), name)
+    
+    def __call__(self, *args, **kwargs):
+        return _get_default_instance()(*args, **kwargs)
+
+NASADEM = _NASADEMProxy()

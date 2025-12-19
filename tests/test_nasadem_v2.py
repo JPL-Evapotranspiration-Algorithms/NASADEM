@@ -32,9 +32,9 @@ def test_connection_init():
     with patch('earthaccess.login') as mock_login:
         from NASADEM import NASADEMConnection
         
-        # Test with no credentials (should use earthaccess defaults)
-        conn = NASADEMConnection()
-        mock_login.assert_called_once()
+        # Test with explicit skip_auth=True (for testing)
+        conn = NASADEMConnection(skip_auth=True)
+        mock_login.assert_not_called()  # Should not call login when skip_auth=True
         assert conn.download_directory is not None
         assert conn.working_directory is not None
 

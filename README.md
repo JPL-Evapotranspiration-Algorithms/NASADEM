@@ -170,6 +170,7 @@ Main class for accessing NASADEM data.
 - `working_directory` (str, optional): Working directory for temporary files
 - `download_directory` (str, optional): Directory for downloaded tiles (default: `~/data/NASADEM`)
 - `persist_credentials` (bool, optional): Save credentials to `.netrc` (default: False)
+- `skip_auth` (bool, optional): Skip authentication (useful for testing, default: False)
 
 ### `NASADEMGranule`
 
