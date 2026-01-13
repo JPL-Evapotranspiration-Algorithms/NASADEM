@@ -1,3 +1,5 @@
+PYTHON_VERSION ?= 3.13
+
 PACKAGE_NAME = NASADEM
 ENVIRONMENT_NAME = $(PACKAGE_NAME)
 DOCKER_IMAGE_NAME = $(shell echo $(PACKAGE_NAME) | tr '[:upper:]' '[:lower:]')
@@ -38,7 +40,7 @@ reinstall:
 	make install
 
 environment:
-	mamba create -y -n $(ENVIRONMENT_NAME) -c conda-forge python=3.10
+	mamba create -y -n $(ENVIRONMENT_NAME) -c conda-forge python=$(PYTHON_VERSION)
 
 remove-environment:
 	mamba env remove -y -n $(ENVIRONMENT_NAME)
