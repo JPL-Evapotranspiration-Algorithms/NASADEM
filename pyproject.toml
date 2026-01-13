@@ -19,7 +19,7 @@ dependencies = [
     "earthaccess>=0.8.0",
     "ECOv002_calval_tables",
     "numpy",
-    "rasters>=1.17.0",
+    "rasters>=1.17.1",
     "sentinel-tiles",
     "shapely"
 ]
