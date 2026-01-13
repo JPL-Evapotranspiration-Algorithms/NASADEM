@@ -85,10 +85,10 @@ nasadem = NASADEMConnection(
 
 ```python
 from NASADEM import NASADEM
-from rasters import RasterGeometry
+from rasters import RasterGrid
 
 # Define target area
-geometry = RasterGeometry.from_bbox(
+geometry = RasterGrid.from_bbox(
     xmin=-118.5, ymin=33.5, xmax=-117.5, ymax=34.5,
     cell_size=30, crs="EPSG:4326"
 )
