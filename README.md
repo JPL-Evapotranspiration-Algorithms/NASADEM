@@ -2,19 +2,21 @@
 
 This Python package provides utilities for accessing and downloading Digital Elevation Model (DEM) data from the NASADEM dataset, which is a reprocessed version of the Shuttle Radar Topography Mission (SRTM) data.
 
-**Version 2.0.0** modernizes the package to use NASA's official [`earthaccess`](https://earthaccess.readthedocs.io/) library for reliable and efficient data access from NASA's Earthdata Cloud.
+**Version 2.x** modernizes the package to use NASA's official [`earthaccess`](https://earthaccess.readthedocs.io/) library for reliable and efficient data access from NASA's Earthdata Cloud.
 
 [Gregory H. Halverson](https://github.com/gregory-halverson-jpl) (they/them)<br>
 [gregory.h.halverson@jpl.nasa.gov](mailto:gregory.h.halverson@jpl.nasa.gov)<br>
 NASA Jet Propulsion Laboratory 329G
 
-## What's New in v2.0.0
+## What's New in v2.x
 
-- 🚀 **Modern Data Access**: Uses NASA's official `earthaccess` package
-- ✅ **Reliable Downloads**: Built-in retry logic and error handling
+- 🚀 **Modern Data Access**: Uses NASA's official `earthaccess` package (`v2.0.0+`)
+- ⚡ **Optimized Point Queries**: Tile-grouped point and multipoint extraction with direct pixel indexing (`v2.0.1+`)
+- 📐 **Updated Raster Interface**: Bumped `rasters>=1.17.1` for improved bounding box handling (`v2.1.0`)
+- ✅ **Reliable Downloads**: Built-in retry logic and error handling via `earthaccess`
 - ☁️ **Cloud-Optimized**: Direct access to NASA Earthdata Cloud
 - 🔐 **Simplified Authentication**: Multiple authentication options (`.netrc`, environment variables, interactive)
-- 🗑️ **Removed Legacy Code**: Deprecated old LP DAAC connection methods
+- 🗑️ **Removed Legacy Code**: Removed deprecated LP DAAC HTTP scraping and custom checksum routines
 
 ## Installation
 
@@ -25,7 +27,7 @@ pip install NASADEM
 Or install from source:
 
 ```bash
-git clone https://github.com/gregory-halverson/NASADEM.git
+git clone [https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git](https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git)
 cd NASADEM
 pip install -e .
 ```
@@ -128,9 +130,9 @@ print(f"Elevation at point: {elevation:.1f} m")
 
 # Multiple points
 points = MultiPoint([
-    Point(-118.0, 34.0),
-    Point(-117.5, 33.8),
-    Point(-118.2, 34.2)
+    (-118.0, 34.0),
+    (-117.5, 33.8),
+    (-118.2, 34.2)
 ])
 elevations = NASADEM.elevation_m(points)
 print(f"Elevations: {elevations}")
@@ -198,6 +200,33 @@ Examples:
 - `n34w118`: 34°N to 35°N, 118°W to 117°W (Los Angeles area)
 - `s10e142`: 10°S to 9°S, 142°E to 143°E (Northern Australia)
 
+## Release History
+
+| Version | Release Date | Summary |
+| :--- | :--- | :--- |
+| **v2.1.0** | 2026-01-13 | Fixed bounding box handling by updating `rasters>=1.17.1` |
+| **v2.0.1** | 2025-12-19 | Fixed single-point `elevation_m()` routing and optimized multi-point extraction via tile grouping |
+| **v2.0.0** | 2025-12-19 | Major rewrite replacing LP DAAC HTTP scraping with NASA's `earthaccess` package |
+| **v1.5.0** | 2025-11-18 | Switched to dynamic package versioning (`importlib.metadata`) and cleaned up logging |
+| **v1.4.0** | 2025-10-24 | Added `Point` and `MultiPoint` extraction and optional checksum enforcement |
+| **v1.3.1** | 2025-09-28 | Fixed home directory (`~`) expansion in `NASADEMConnection` |
+| **v1.3.0** | 2025-07-08 | Replaced `pycksum` with pure-Python POSIX `cksum` for Python 3.10–3.13 compatibility |
+| **v1.2.1** | 2025-06-03 | Quieted directory initialization logging |
+| **v1.2.0** | 2025-04-07 | Enabled `offline_ok=True` by default and local file existence checks |
+| **v1.1.1** | 2025-03-25 | Added `NASADEM` singleton instance and warned instead of raising on missing credentials |
+| **v1.0.1** | 2025-03-19 | Initial release |
+
+See [notes/2026-11-20 NASADEM repository history.md](notes/2026-11-20%20NASADEM%20repository%20history.md) for the full commit-level development timeline.
+
+## Known Issues
+
+- **`MultiPoint` Coordinate Extraction**: `_extract_point_values()` iterates over `geometry.geoms`, which can vary depending on how `rasters.MultiPoint` is instantiated (`MultiPoint(x=..., y=...)` vs. coordinate tuples).
+- **Redundant File Move on Download**: `download_tile()` compares `pathlib.Path` objects returned by `earthaccess.download()` against `str` paths, causing `shutil.move()` to run even when the destination path already matches.
+- **Exact Integer Bounding Box Boundaries**: `tiles_intersecting_bbox()` uses `int(np.floor(max_coord)) + 1`, which includes an extra adjacent 1°×1° tile when `lon_max` or `lat_max` falls on an exact integer degree boundary.
+- **Packaging Dependencies**: `ECOv002_calval_tables` and unused `sentinel-tiles` are currently declared in core `[project] dependencies` in `pyproject.toml` rather than optional/dev dependencies.
+
+See [notes/2026-11-20 known issues.md](notes/2026-11-20%20known%20issues.md) for the full issue tracker and remediation details.
+
 ## Migration from v1.x
 
 If you're upgrading from v1.x:
@@ -214,11 +243,11 @@ from NASADEM import NASADEMConnection
 nasadem = NASADEMConnection(
     username="user",
     password="pass",
-    remote="https://e4ftl01.cr.usgs.gov"  # Old URL
+    remote="[https://e4ftl01.cr.usgs.gov](https://e4ftl01.cr.usgs.gov)"  # Old URL
 )
 ```
 
-New code (v2.0):
+New code (v2.0+):
 ```python
 from NASADEM import NASADEMConnection
 
@@ -266,7 +295,9 @@ See [LICENSE](LICENSE) file.
 - [Migration Guide](docs/Migration-Guide.md) - How to upgrade from v1.x to v2.0.0
 - [Changelog](docs/Changelog.md) - Version history and changes
 - [Release Summary](docs/Release-Summary.md) - Detailed v2.0.0 release notes
+- [Repository History](notes/2026-11-20%20NASADEM%20repository%20history.md) - Full development and release timeline
+- [Known Issues](notes/2026-11-20%20known%20issues.md) - Current bugs, packaging items, and technical debt
 
 ## Contributing
 
-Issues and pull requests are welcome at https://github.com/gregory-halverson/NASADEM
+Issues and pull requests are welcome at https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM
