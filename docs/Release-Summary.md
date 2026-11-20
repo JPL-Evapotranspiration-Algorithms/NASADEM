@@ -6,7 +6,7 @@ NASADEM was overhauled in version 2.0.0, modernizing the package to use NASA's o
 
 ## Status: ✅ COMPLETE
 
-All components of the v2.0.0 overhaul have been implemented and superseded by `v2.0.1`, `v2.1.0`, and `v2.2.0`.
+All components of the v2.0.0 overhaul have been implemented and superseded by `v2.0.1`, `v2.1.0`, `v2.2.0`, and `v2.2.1`.
 
 ## What Was Changed in v2.0.0
 
@@ -35,4 +35,4 @@ All components of the v2.0.0 overhaul have been implemented and superseded by `v
 ---
 
 **v2.0.0 Release Date**: December 19, 2025  
-**Current Target Version**: 2.2.0
+**Current Target Version**: 2.2.1

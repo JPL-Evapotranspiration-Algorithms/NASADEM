@@ -28,7 +28,7 @@ pip install NASADEM
 Or install from source:
 
 ```bash
-git clone [https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git](https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git)
+git clone https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git
 cd NASADEM
 pip install -e .
 ```
@@ -237,7 +237,7 @@ from NASADEM import NASADEMConnection
 nasadem = NASADEMConnection(
     username="user",
     password="pass",
-    remote="[https://e4ftl01.cr.usgs.gov](https://e4ftl01.cr.usgs.gov)"  # Old URL
+    remote="https://e4ftl01.cr.usgs.gov"  # Old URL
 )
 ```
 
@@ -291,7 +291,7 @@ See [LICENSE](LICENSE) file.
 - [Release Summary](docs/Release-Summary.md) - Detailed v2.0.0 release notes
 - [Repository History](notes/2026-11-20%20NASADEM%20repository%20history.md) - Full development and release timeline
 - [Development Plan](notes/2026-11-20%20NASADEM%20development%20plan.md) - Engineering roadmap through v2.2.1
-- [Known Issues](notes/2026-11-20%20known%20issues.md) - Audit log of bugs, packaging items, and technical debt
+- [Known Issues](notes/2026-11-20%20NASADEM%20known%20issues.md) - Audit log of bugs, packaging items, and technical debt
 
 ## Contributing
 

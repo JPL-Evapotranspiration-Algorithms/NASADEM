@@ -1,73 +1,52 @@
-# NASADEM Development Plan (`v2.1.0` → `v2.2.1`) (2026-11-20)
+# Known Issues (2026-11-20)
 
-This document consolidates the complete development and release history of the **NASADEM** package through `v2.2.0` and defines the engineering roadmap to resolve the remaining documentation, CI/CD, and configuration items for the **`v2.2.1`** patch release.
-
----
-
-## Part 1: Historical Development & Release Summary (`v1.0.1` – `v2.2.0`)
-
-### Release Overview
-
-| Version | Release Date (UTC) | Milestone Summary |
-| :--- | :--- | :--- |
-| **v1.0.1** | `2025-03-19` | Initial release using `LPDAACDataPool` HTTP scraping and `wget` downloads |
-| **v1.1.1** | `2025-03-25` | Renamed core classes (`NASADEMConnection`, `NASADEMGranule`), added `NASADEM` singleton, tolerated missing credentials |
-| **v1.2.0** | `2025-04-07` | Enabled `offline_ok=True` by default and local `.zip` tile existence caching |
-| **v1.2.1** | `2025-06-03` | Quieted repetitive working/download directory logs during initialization |
-| **v1.3.0** | `2025-07-08` | Replaced C-based `pycksum` with pure-Python POSIX CRC-32 (`NASADEM/cksum.py`) for Python 3.12+ compatibility |
-| **v1.3.1** | `2025-09-28` | Restored `abspath(expanduser(...))` home directory expansion in `NASADEMConnection` |
-| **v1.4.0** | `2025-10-24` | Added `Point` and `MultiPoint` extraction (`_extract_point_values`) and made checksum enforcement optional |
-| **v1.5.0** | `2025-11-18` | Switched to dynamic versioning via `importlib.metadata`, flattened `LPDAACDataPool`, removed unused `timer` module |
-| **v2.0.0** | `2025-12-19` | Major architectural rewrite migrating from LP DAAC HTTP scraping to NASA's `earthaccess` library with lazy CI-safe proxy initialization |
-| **v2.0.1** | `2025-12-19` | Fixed single-point `elevation_m()` routing and optimized multi-point extraction via tile grouping and direct pixel indexing |
-| **v2.1.0** | `2026-01-13` | Resolved bounding box and raster interface issues by bumping `rasters>=1.17.1` |
-| **v2.2.0** | `2026-11-20` | Fixed `MultiPoint` extraction (#19), `Path` download comparison (#20), integer bbox boundaries (#21), nodata guards (#22), `pyproject.toml` dependencies (#23), and added unit tests (#25) |
+This document tracks known bugs, packaging issues, documentation inconsistencies, and repository hygiene items identified during the `v2.1.0` codebase review and resolved across `v2.2.0` and `v2.2.1`.
 
 ---
 
-## Part 2: Completed Work in `v2.2.0`
+## 1. Core Library Bugs (`NASADEM/NASADEM.py`)
 
-### Phase 1: Core Library Bug Fixes (`NASADEM/NASADEM.py`) — ✅ Completed
-- **Normalized `MultiPoint` Coordinate Extraction (#19):** Inspected `.x` and `.y` coordinate arrays first with a fallback to `.geoms`.
-- **Fixed `Path` vs. `str` Comparison in `download_tile()` (#20):** Normalized both paths with `abspath(str(...))` before calling `shutil.move()`.
-- **Fixed Exact Integer Degree Boundary Off-by-One in `tiles_intersecting_bbox()` (#21):** Prevented integer `lon_max` and `lat_max` upper bounds from spilling into adjacent 1°×1° tiles.
-- **Cleaned Up Redundant `NaN` Inequality Check (#22):** Guarded `data_layer.nodata` comparisons with explicit `None` and `NaN` checks.
+### 1.1 `MultiPoint` Iteration in `_extract_point_values` (#19 — Fixed in v2.2.0)
+- **Location:** `NASADEM/NASADEM.py`
+- **Issue:** `_extract_point_values` iterated exclusively over `geometry.geoms`, which does not behave uniformly across `rasters.MultiPoint` constructors (`MultiPoint(x=..., y=...)` vs. tuple coordinates vs. `Point` lists).
+- **Resolution:** Normalized `MultiPoint` coordinate extraction using `geometry.x` and `geometry.y` arrays with a `.geoms` fallback.
 
-### Phase 2: Packaging & Dependency Cleanup (`pyproject.toml`) — ✅ Completed
-- Bumped `version = "2.2.0"`.
-- Moved `ECOv002_calval_tables` to `[project.optional-dependencies] dev` (#23).
-- Removed unused `sentinel-tiles` and duplicate `"pytest"` entries (#23).
-- Standardized repository URL to `https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM` (#23).
+### 1.2 `Path` vs. `str` Comparison in `download_tile` (#20 — Fixed in v2.2.0)
+- **Location:** `NASADEM/NASADEM.py`
+- **Issue:** `earthaccess.download()` returns `pathlib.Path` objects in `earthaccess>=0.8.0`, whereas `self.tile_filename(tile)` returns a `str`. Comparing `downloaded_file != filename` always evaluated to `True`, triggering `shutil.move()` onto the same path.
+- **Resolution:** Normalized both paths with `abspath(str(downloaded_file)) != abspath(filename)` before moving.
 
-### Phase 3: Unit Tests & Root Script Relocation — ✅ Completed
-- Added offline unit tests in `tests/test_nasadem_v2.py` covering `NASADEMGranule`, integer bounding boxes, `Path` download handling, and `MultiPoint` constructors (#25).
-- Relocated root `test_nasadem_elevation.py` into `tests/test_nasadem_elevation.py` as an `@pytest.mark.integration` test and removed root `debug.py` (#25).
-- Updated `docs/Changelog.md`, `docs/Migration-Guide.md`, and `.github/workflows/python-publish.yml` (#24, #25).
+### 1.3 Integer Degree Boundary Off-by-One in `tiles_intersecting_bbox` (#21 — Fixed in v2.2.0)
+- **Location:** `NASADEM/NASADEM.py`
+- **Issue:** When `lon_max` or `lat_max` lay on an exact integer degree boundary (e.g., `lon_max = -117.0`), `range(int(np.floor(lon_min)), int(np.floor(lon_max)) + 1)` included the adjacent eastern/northern tile.
+- **Resolution:** Adjusted upper-bound floor logic so exact integer upper boundaries do not spill into the next 1°×1° tile unless `lon_max == lon_min` or `lat_max == lat_min`.
+
+### 1.4 Redundant `NaN` Inequality Check in `_extract_point_values` (#22 — Fixed in v2.2.0)
+- **Location:** `NASADEM/NASADEM.py`
+- **Issue:** `granule.get_elevation_m(geometry=None)` replaces `nodata` values with `np.nan` and sets `data.nodata = np.nan`, making `value != data_layer.nodata` always `True` under IEEE 754 rules.
+- **Resolution:** Guarded nodata comparisons with `nodata is not None and not np.isnan(nodata) and value == nodata`.
 
 ---
 
-## Part 3: `v2.2.1` Patch Release Plan & Remediation Roadmap
+## 2. Packaging & Dependencies (`pyproject.toml`) (#23 — Fixed in v2.2.0)
 
-The **`v2.2.1`** micro-release addresses the remaining documentation examples, Markdown formatting, and CI/test runner configuration items without changing public APIs.
+- **Unnecessary Runtime Dependency (`ECOv002_calval_tables`):** Moved from `[project] dependencies` to `[project.optional-dependencies] dev`.
+- **Unused Dependency (`sentinel-tiles`):** Removed from `[project] dependencies`.
+- **Duplicate Dev Dependency:** Removed duplicate `"pytest"` entry under `[project.optional-dependencies] dev`.
+- **Repository URL Mismatch:** Standardized repository URLs across `pyproject.toml`, `README.md`, and `docs/` to `https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM`.
 
-### 1. Fix Geographic `cell_size` Example (#18)
-- **Files:** `README.md`, `docs/Migration-Guide.md`
-- **Action:** Replace `cell_size=30, crs="EPSG:4326"` (which specifies 30 degrees per pixel and produces a `0×0` grid) with `cell_size=0.00027778, crs="EPSG:4326"` (~30 m / 1 arc-second).
+---
 
-### 2. Fix Markdown List Formatting & Duplicate Notes (#24)
-- **Files:** `docs/Release-Summary.md`, `notes/`
-- **Action:**
-  - Indent nested bullet points under items `1.`, `2.`, and `3.` in `docs/Release-Summary.md` by 3 spaces so numbered list rendering does not reset.
-  - Remove duplicate `notes/2026-11-20 NASADEM known issues.md` and consolidate tracking in `notes/2026-11-20 known issues.md`.
+## 3. Documentation Inconsistencies (#18, #24 — Fixed in v2.2.1)
 
-### 3. Update CI Workflow & `tox.ini` Matrix (#25)
-- **Files:** `.github/workflows/ci.yml`, `tox.ini`
-- **Action:**
-  - Upgrade `.github/workflows/ci.yml` from `actions/checkout@v3` and `actions/setup-python@v4` to `@v4` and `@v5`.
-  - Add a `ruff check NASADEM tests` lint job and pass `-m "not integration"` to `pytest`.
-  - Update `tox.ini` `envlist` to `py311,py312,py313,py314` and exclude integration tests by default (`pytest -m "not integration" {posargs}`).
+- **Geographic `cell_size` Example in `README.md` and `docs/Migration-Guide.md` (#18):** Replaced `cell_size=30, crs="EPSG:4326"` (30 degrees per pixel, yielding an empty `0×0` grid) with `cell_size=0.00027778, crs="EPSG:4326"` (~30 m / 1 arc-second).
+- **Stale File References & Formatting in `docs/` (#24):** Removed references to deleted files (`LPDAACDataPool.py`, `LPDAACDataPool_DEPRECATED.py`, `cksum.py`), fixed nested list indentation in `docs/Release-Summary.md`, and updated relative links to `../README.md`, `Changelog.md`, and `Migration-Guide.md`.
 
-### 4. Release Metadata & Tagging (`v2.2.1`)
-- Bump `version = "2.2.1"` in `pyproject.toml`.
-- Add `v2.2.1` patch notes to `docs/Changelog.md` and `README.md`.
-- Run `ruff check NASADEM tests` and `make test`, tag `v2.2.1`, push to `main --tags`, and close GitHub issues `#18`, `#24`, and `#25`.
+---
+
+## 4. Testing & CI/CD Hygiene (#25 — Fixed in v2.2.0 / v2.2.1)
+
+- **Root-Level `test_nasadem_elevation.py`:** Moved into `tests/test_nasadem_elevation.py` and wrapped in an `@pytest.mark.integration` test function.
+- **Root-Level `debug.py`:** Removed scratch file from repository root.
+- **Missing Unit Tests for `NASADEMGranule`:** Added offline unit tests in `tests/test_nasadem_v2.py` using an in-memory `.zip` archive containing synthetic `.hgt` and `.swb` rasters.
+- **Outdated GitHub Actions & Tox Matrix:** Upgraded `.github/workflows/ci.yml` and `python-publish.yml` to `actions/checkout@v4` and `actions/setup-python@v5`, added `ruff` linting, and updated `tox.ini` to Python `3.11`–`3.14`.
