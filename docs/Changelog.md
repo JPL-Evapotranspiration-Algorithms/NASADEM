@@ -5,7 +5,35 @@ All notable changes to the NASADEM package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.0] - 2024-12-19
+## [2.2.0] - 2026-11-20
+
+### Fixed
+
+- **MultiPoint Coordinate Extraction**: Normalized `_extract_point_values()` to read `.x` and `.y` coordinate arrays first with a fallback to `.geoms`, supporting all `rasters.MultiPoint` constructor forms.
+- **Download Path Comparison**: Converted `pathlib.Path` results from `earthaccess.download()` with `abspath(str(...))` before comparing against target filenames, preventing redundant `shutil.move()` calls.
+- **Exact Integer Bounding Box Boundaries**: Adjusted `tiles_intersecting_bbox()` so exact integer `lon_max` and `lat_max` values do not spill into adjacent 1°×1° tiles.
+- **Nodata Comparison Guard**: Replaced redundant `value != data_layer.nodata` comparison with explicit `None` and `NaN` checks.
+
+### Changed
+
+- **Cleaned Up Dependencies**: Moved `ECOv002_calval_tables` from runtime `dependencies` to `[project.optional-dependencies] dev`, removed unused `sentinel-tiles`, and removed duplicate `pytest` entries in `pyproject.toml`.
+- **Standardized Repository URLs**: Updated GitHub repository links across documentation to `https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM`.
+- **Test & CI Hygiene**: Added offline unit tests for `NASADEMGranule`, integer bounding boxes, and `MultiPoint` extraction; moved integration script `test_nasadem_elevation.py` into `tests/`; updated GitHub Actions workflows to `@v4`/`@v5` with `ruff` linting.
+
+## [2.1.0] - 2026-01-13
+
+### Changed
+
+- Updated minimum `rasters` dependency to `>=1.17.1` to fix bounding box handling and package interface compatibility.
+
+## [2.0.1] - 2025-12-19
+
+### Fixed
+
+- Fixed single-point `elevation_m()` routing to use `_extract_point_values()`.
+- Optimized multi-point extraction by grouping points by tile and sampling directly via pixel indices.
+
+## [2.0.0] - 2025-12-19
 
 ### 🚀 Major Changes
 
@@ -33,67 +61,21 @@ This is a complete rewrite of the package to modernize data access using NASA's 
 
 ### Removed
 
-- **BREAKING**: `LPDAACDataPool` class (moved to `LPDAACDataPool_DEPRECATED.py` with deprecation warning)
+- **BREAKING**: `LPDAACDataPool` class and `cksum.py`
 - **BREAKING**: `filenames.csv` no longer required - data discovery is dynamic
 - Custom URL construction logic
-- Custom checksum validation (now handled by earthaccess)
+- Custom checksum validation (now handled by `earthaccess`)
 - Custom authentication/session management
 
-### Deprecated
+## [1.5.0] - 2025-11-18
 
-- `LPDAACDataPool_DEPRECATED.py`: Old implementation kept for reference only
-
-### Fixed
-
-- Issues with authentication to updated NASA servers
-- Broken download links due to NASA infrastructure changes
-- Connection timeout issues with retry logic now built-in
-
-### Migration Guide
-
-**v1.x Code:**
-```python
-from NASADEM import NASADEMConnection
-
-nasadem = NASADEMConnection(
-    username="user",
-    password="pass",
-    remote="https://e4ftl01.cr.usgs.gov"
-)
-elevation = nasadem.elevation_m(geometry)
-```
-
-**v2.0 Code:**
-```python
-from NASADEM import NASADEMConnection
-
-# Option 1: Let earthaccess handle auth (recommended)
-nasadem = NASADEMConnection()  # Uses .netrc or prompts
-
-# Option 2: Provide credentials
-nasadem = NASADEMConnection(
-    username="user",
-    password="pass",
-    persist_credentials=True
-)
-
-# Same API for data access
-elevation = nasadem.elevation_m(geometry)
-```
-
-### Security
-
-- Credentials can now be persisted securely to `.netrc` file
-- Support for environment variables for CI/CD workflows
-- No longer requires credentials in code
-
-## [1.5.0] - Previous Release
-
-- Legacy implementation using custom LP DAAC connection
-- Direct HTTP downloads from `e4ftl01.cr.usgs.gov`
-- Custom authentication and checksum validation
+- Switched to dynamic package versioning via `importlib.metadata`
+- Cleaned up initialization logging and removed unused `Timer` subpackage
 
 ---
 
-[2.0.0]: https://github.com/gregory-halverson/NASADEM/compare/v1.5.0...v2.0.0
-[1.5.0]: https://github.com/gregory-halverson/NASADEM/releases/tag/v1.5.0
+[2.2.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.1.0...v2.2.0
+[2.1.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.0.1...v2.1.0
+[2.0.1]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.0.0...v2.0.1
+[2.0.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v1.5.0...v2.0.0
+[1.5.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/releases/tag/v1.5.0
