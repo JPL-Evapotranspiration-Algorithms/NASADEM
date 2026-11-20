@@ -14,6 +14,7 @@ NASA Jet Propulsion Laboratory 329G
 - ⚡ **Optimized Point Queries**: Tile-grouped point and multipoint extraction with direct pixel indexing (`v2.0.1+`)
 - 📐 **Updated Raster Interface**: Bumped `rasters>=1.17.1` for improved bounding box handling (`v2.1.0`)
 - 🛠️ **Hardened Geometry & Downloads**: Normalized `MultiPoint` extraction, exact integer bounding-box tile bounds, and streamlined dependencies (`v2.2.0`)
+- 📖 **Documentation & CI Polish**: Fixed `EPSG:4326` degree `cell_size` examples and updated GitHub Actions/tox workflows (`v2.2.1`)
 - ✅ **Reliable Downloads**: Built-in retry logic and error handling via `earthaccess`
 - ☁️ **Cloud-Optimized**: Direct access to NASA Earthdata Cloud
 - 🔐 **Simplified Authentication**: Multiple authentication options (`.netrc`, environment variables, interactive)
@@ -89,10 +90,10 @@ nasadem = NASADEMConnection(
 from NASADEM import NASADEM
 from rasters import RasterGrid
 
-# Define target area
+# Define target area (~30m / 1 arc-second resolution in geographic degrees)
 geometry = RasterGrid.from_bbox(
     xmin=-118.5, ymin=33.5, xmax=-117.5, ymax=34.5,
-    cell_size=30, crs="EPSG:4326"
+    cell_size=0.00027778, crs="EPSG:4326"
 )
 
 # Get elevation data
@@ -204,6 +205,7 @@ Examples:
 
 | Version | Release Date | Summary |
 | :--- | :--- | :--- |
+| **v2.2.1** | 2026-11-20 | Fixed `EPSG:4326` `cell_size` example, updated documentation formatting, and upgraded CI/tox configuration |
 | **v2.2.0** | 2026-11-20 | Normalized `MultiPoint` extraction, fixed `Path` comparison and integer bbox tile boundaries, cleaned up dependencies |
 | **v2.1.0** | 2026-01-13 | Fixed bounding box handling by updating `rasters>=1.17.1` |
 | **v2.0.1** | 2025-12-19 | Fixed single-point `elevation_m()` routing and optimized multi-point extraction via tile grouping |
@@ -288,8 +290,8 @@ See [LICENSE](LICENSE) file.
 - [Changelog](docs/Changelog.md) - Version history and changes
 - [Release Summary](docs/Release-Summary.md) - Detailed v2.0.0 release notes
 - [Repository History](notes/2026-11-20%20NASADEM%20repository%20history.md) - Full development and release timeline
-- [Development Plan](notes/2026-11-20%20NASADEM%20development%20plan.md) - Engineering roadmap through v2.2.0
-- [Known Issues](notes/2026-11-20%20known%20issues.md) - Audit log of bugs, packaging items, and technical debt
+- [Development Plan](notes/2026-11-20%20NASADEM%20development%20plan.md) - Engineering roadmap through v2.2.1
+- [Known Issues](notes/2026-11-20%20NASADEM%20known%20issues.md) - Audit log of bugs, packaging items, and technical debt
 
 ## Contributing
 

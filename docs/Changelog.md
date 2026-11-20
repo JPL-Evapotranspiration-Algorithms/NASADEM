@@ -5,6 +5,17 @@ All notable changes to the NASADEM package will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-11-20
+
+### Fixed
+
+- **Geographic `cell_size` Example (#18)**: Updated `README.md` and `docs/Migration-Guide.md` bounding box examples from `cell_size=30` (30 degrees) to `cell_size=0.00027778` (~30 m / 1 arc-second) in `EPSG:4326`.
+- **Documentation Formatting (#24)**: Fixed nested list indentation in `docs/Release-Summary.md` and cleaned up accidental Markdown links inside `README.md` code blocks.
+
+### Changed
+
+- **CI & Tox Configuration (#25)**: Upgraded `.github/workflows/ci.yml` to `actions/checkout@v4` and `actions/setup-python@v5`, added `ruff check NASADEM tests`, and updated `tox.ini` to Python `3.11`–`3.14` excluding integration tests by default.
+
 ## [2.2.0] - 2026-11-20
 
 ### Fixed
@@ -74,6 +85,7 @@ This is a complete rewrite of the package to modernize data access using NASA's 
 
 ---
 
+[2.2.1]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.2.0...v2.2.1
 [2.2.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.1.0...v2.2.0
 [2.1.0]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.0.1...v2.1.0
 [2.0.1]: https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/compare/v2.0.0...v2.0.1

@@ -1,20 +1,16 @@
-from typing import Union
 import json
 import logging
 import os
 from os import makedirs
-from os.path import exists, splitext, basename, join, expanduser, abspath
-from typing import List
+from os.path import abspath, basename, exists, expanduser, join, splitext
 from zipfile import ZipFile
 
+import colored_logging as cl
 import earthaccess
 import numpy as np
-from shapely.geometry import Polygon
-
-import colored_logging as cl
-from rasters import Raster, RasterGeometry, RasterGrid, Point, MultiPoint
 import rasters
-
+from rasters import MultiPoint, Point, Raster, RasterGeometry, RasterGrid
+from shapely.geometry import Polygon
 
 DEFAULT_WORKING_DIRECTORY = join("~", "data", "NASADEM")
 DEFAULT_DOWNLOAD_DIRECTORY = DEFAULT_WORKING_DIRECTORY
@@ -25,7 +21,7 @@ logger = logging.getLogger(__name__)
 class NASADEMGranule:
     def __init__(self, filename: str):
         if not exists(filename):
-            raise IOError(f"SRTM file not found: {filename}")
+            raise OSError(f"SRTM file not found: {filename}")
 
         self.filename = filename
         self._geometry = None
@@ -38,7 +34,7 @@ class NASADEMGranule:
     def hgt_URI(self) -> str:
         return f"zip://{self.filename}!/{self.tile.lower()}.hgt"
 
-    def get_elevation_m(self, geometry: Union[RasterGeometry, Point, MultiPoint] = None) -> Raster:
+    def get_elevation_m(self, geometry: RasterGeometry | Point | MultiPoint = None) -> Raster:
         URI = self.hgt_URI
         logger.info(f"loading elevation: {cl.URL(URI)}")
         data = Raster.open(URI, geometry=geometry)
@@ -63,7 +59,7 @@ class NASADEMGranule:
     def swb_URI(self) -> str:
         return f"zip://{self.filename}!/{self.tile.lower()}.swb"
 
-    def get_swb(self, geometry: Union[RasterGeometry, Point, MultiPoint] = None) -> Raster:
+    def get_swb(self, geometry: RasterGeometry | Point | MultiPoint = None) -> Raster:
         URI = self.swb_URI
 
         if geometry is None:
@@ -73,9 +69,8 @@ class NASADEMGranule:
         member_name = f"{self.tile.lower()}.swb"
         logger.info(f"loading swb: {cl.URL(URI)}")
 
-        with ZipFile(filename, "r") as zip_file:
-            with zip_file.open(member_name, "r") as file:
-                data = Raster(np.frombuffer(file.read(), dtype=np.int8).reshape(geometry.shape), geometry=geometry)
+        with ZipFile(filename, "r") as zip_file, zip_file.open(member_name, "r") as file:
+            data = Raster(np.frombuffer(file.read(), dtype=np.int8).reshape(geometry.shape), geometry=geometry)
 
         data = data != 0
 
@@ -212,7 +207,7 @@ class NASADEMConnection:
     def tiles_intersecting_multipoint(self, multipoint: MultiPoint):
         return self.tiles_intersecting_bbox(multipoint.xmin, multipoint.ymin, multipoint.xmax, multipoint.ymax)
 
-    def tiles(self, geometry: Union[Polygon, RasterGeometry, Point, MultiPoint]) -> List[str]:
+    def tiles(self, geometry: Polygon | RasterGeometry | Point | MultiPoint) -> list[str]:
         if isinstance(geometry, Polygon):
             return self.tiles_intersecting_polygon(geometry)
         elif isinstance(geometry, RasterGeometry):
@@ -271,7 +266,7 @@ class NASADEMConnection:
 
         return NASADEMGranule(filename)
 
-    def swb(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
+    def swb(self, geometry: RasterGeometry | Point | MultiPoint):
         """
         Surface water body from NASADEM.
 
@@ -303,7 +298,7 @@ class NASADEMConnection:
 
         return result
 
-    def elevation_m(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
+    def elevation_m(self, geometry: RasterGeometry | Point | MultiPoint):
         """
         Digital elevation model in meters from NASADEM.
 
@@ -335,7 +330,7 @@ class NASADEMConnection:
 
         return result
 
-    def elevation_km(self, geometry: Union[RasterGeometry, Point, MultiPoint]):
+    def elevation_km(self, geometry: RasterGeometry | Point | MultiPoint):
         """
         Digital elevation model in kilometers from NASADEM.
 
@@ -347,7 +342,7 @@ class NASADEMConnection:
         """
         return self.elevation_m(geometry=geometry) / 1000
 
-    def _extract_point_values(self, geometry: Union[Point, MultiPoint], data_type: str):
+    def _extract_point_values(self, geometry: Point | MultiPoint, data_type: str):
         """
         Extract values at point locations from NASADEM data.
 

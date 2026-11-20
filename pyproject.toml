@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "NASADEM"
-version = "2.2.0"
+version = "2.2.1"
 description = "Shuttle Radar Topography Mission (SRTM) Digital Elevation Model (DEM) search and download utility"
 readme = "README.md"
 authors = [
@@ -46,4 +46,16 @@ exclude = ["notebooks", "notebooks.*", "debug", "debug.*", "docs", "docs.*", "no
 [tool.pytest.ini_options]
 markers = [
     "integration: marks tests as integration tests (may require network access)"
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "SIM"]
+ignore = [
+    "E501",
+    "F403",
+    "F405",
 ]
