@@ -47,3 +47,15 @@ exclude = ["notebooks", "notebooks.*", "debug", "debug.*", "docs", "docs.*", "no
 markers = [
     "integration: marks tests as integration tests (may require network access)"
 ]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "SIM"]
+ignore = [
+    "E501",
+    "F403",
+    "F405",
+]

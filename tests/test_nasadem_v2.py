@@ -117,8 +117,9 @@ def test_tiles_intersecting_bbox_exact_integer_boundaries():
 def test_tiles_from_point():
     """Test finding tile for a single point."""
     with patch('earthaccess.login'):
-        from NASADEM import NASADEMConnection
         from rasters import Point
+
+        from NASADEM import NASADEMConnection
 
         conn = NASADEMConnection(skip_auth=True)
 
@@ -131,36 +132,34 @@ def test_tiles_from_point():
 
 def test_search_tile():
     """Test tile search functionality."""
-    with patch('earthaccess.login'):
-        with patch('earthaccess.search_data') as mock_search:
-            from NASADEM import NASADEMConnection
+    with patch('earthaccess.login'), patch('earthaccess.search_data') as mock_search:
+        from NASADEM import NASADEMConnection
 
-            mock_granule = Mock()
-            mock_search.return_value = [mock_granule]
+        mock_granule = Mock()
+        mock_search.return_value = [mock_granule]
 
-            conn = NASADEMConnection(skip_auth=True)
-            result = conn.search_tile("n34w118")
+        conn = NASADEMConnection(skip_auth=True)
+        result = conn.search_tile("n34w118")
 
-            assert result is not None
-            mock_search.assert_called_once()
-            call_kwargs = mock_search.call_args[1]
-            assert call_kwargs['short_name'] == 'NASADEM_HGT'
-            assert call_kwargs['version'] == '001'
-            assert 'N34W118' in call_kwargs['granule_name']
+        assert result is not None
+        mock_search.assert_called_once()
+        call_kwargs = mock_search.call_args[1]
+        assert call_kwargs['short_name'] == 'NASADEM_HGT'
+        assert call_kwargs['version'] == '001'
+        assert 'N34W118' in call_kwargs['granule_name']
 
 
 def test_search_tile_not_found():
     """Test tile search when tile doesn't exist."""
-    with patch('earthaccess.login'):
-        with patch('earthaccess.search_data') as mock_search:
-            from NASADEM import NASADEMConnection
+    with patch('earthaccess.login'), patch('earthaccess.search_data') as mock_search:
+        from NASADEM import NASADEMConnection
 
-            mock_search.return_value = []
+        mock_search.return_value = []
 
-            conn = NASADEMConnection(skip_auth=True)
-            result = conn.search_tile("n90w180")
+        conn = NASADEMConnection(skip_auth=True)
+        result = conn.search_tile("n90w180")
 
-            assert result is None
+        assert result is None
 
 
 def test_tile_not_available_exception():
@@ -192,8 +191,9 @@ def test_download_tile_path_handling(tmp_path):
 
 def test_granule_properties(tmp_path):
     """Test NASADEMGranule properties and raster extraction with synthetic zip."""
-    from NASADEM import NASADEMGranule
     from rasters import Raster, RasterGrid
+
+    from NASADEM import NASADEMGranule
 
     zip_path = tmp_path / "NASADEM_HGT_N34W118.zip"
     _create_synthetic_granule_zip(zip_path, tile="n34w118", shape=(4, 4))
@@ -239,9 +239,10 @@ def test_connection_repr():
 def test_tiles_for_different_geometries():
     """Test tile finding for various geometry types."""
     with patch('earthaccess.login'):
-        from NASADEM import NASADEMConnection
         from rasters import MultiPoint
         from shapely.geometry import Polygon
+
+        from NASADEM import NASADEMConnection
 
         conn = NASADEMConnection(skip_auth=True)
 
@@ -265,8 +266,9 @@ def test_tiles_for_different_geometries():
 
 def test_multipoint_extraction_constructors(tmp_path):
     """Test _extract_point_values supports multiple MultiPoint constructor styles."""
-    from NASADEM import NASADEMConnection
     from rasters import MultiPoint, Point, Raster, RasterGrid
+
+    from NASADEM import NASADEMConnection
 
     conn = NASADEMConnection(download_directory=str(tmp_path), skip_auth=True)
     zip_path = Path(conn.tile_filename("n34w118"))
