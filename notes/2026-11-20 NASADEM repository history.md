@@ -1,6 +1,6 @@
 # NASADEM Repository Development and Release History (2026-11-20)
 
-This document summarizes the complete development and release timeline of the **NASADEM** Python package from its initial release (`v1.0.1`) in March 2025 through `v2.1.0` in January 2026.
+This document summarizes the complete development and release timeline of the **NASADEM** Python package from its initial release (`v1.0.1`) in March 2025 through `v2.2.0` in November 2026.
 
 ---
 
@@ -19,6 +19,7 @@ This document summarizes the complete development and release timeline of the **
 | **v2.0.0** | `2025-12-19` | Major rewrite migrating from legacy LP DAAC HTTP scraping to NASA `earthaccess` |
 | **v2.0.1** | `2025-12-19` | Optimized point/multipoint queries via tile grouping and direct pixel indexing |
 | **v2.1.0** | `2026-01-13` | Fixed bounding box handling by bumping `rasters` minimum version to `>=1.17.1` |
+| **v2.2.0** | `2026-11-20` | Normalized `MultiPoint` extraction, fixed `Path` comparison & integer bbox tile boundaries, cleaned up dependencies & CI |
 
 ---
 
@@ -52,7 +53,7 @@ This document summarizes the complete development and release timeline of the **
   - Replaced static `version.txt` reading with dynamic `importlib.metadata.version("NASADEM")` in `NASADEM/version.py` (`9e3fe73`).
   - Flattened `NASADEM/LPDAAC/LPDAACDataPool.py` into `NASADEM/LPDAACDataPool.py` and removed the unused `NASADEM/timer/` subpackage.
 
-### Phase 3: `earthaccess` Rewrite & Stabilization (`v2.0.0` – `v2.1.0`)
+### Phase 3: `earthaccess` Rewrite & Stabilization (`v2.0.0` – `v2.2.0`)
 
 - **`v2.0.0` (2025-12-19) — Migration to NASA `earthaccess`**
   - Rewrote `NASADEMConnection` to authenticate via `earthaccess.login()` and discover/download `NASADEM_HGT` v001 granules via `earthaccess.search_data()` and `earthaccess.download()` (`4fd6d84`).
@@ -64,3 +65,5 @@ This document summarizes the complete development and release timeline of the **
   - Rewrote `_extract_point_values()` to group points by tile (loading each tile once) and compute direct row/column array indices rather than calling `to_point()` per point.
 - **`v2.1.0` (2026-01-13) — Bounding Box & `rasters` Interface Fix**
   - Upgraded the minimum `rasters` dependency from `>=1.14.0` to `>=1.17.1` across two commits (`d4fc8bd`, `040a7a2`) to resolve upstream bounding box and package interface issues.
+- **`v2.2.0` (2026-11-20) — Edge-Case Hardening, Packaging Cleanup & Test Expansion**
+  - Normalized `MultiPoint` extraction, fixed `Path` vs. `str` comparisons in `download_tile()`, fixed integer degree boundary off-by-one errors in `tiles_intersecting_bbox()`, moved `ECOv002_calval_tables` to `dev` dependencies, and expanded unit tests and CI checks.

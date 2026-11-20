@@ -1,6 +1,6 @@
-# NASADEM v2.0.0 Migration Guide
+# NASADEM v2.x Migration Guide
 
-This guide helps you migrate from NASADEM v1.x to v2.0.0, which modernizes the package to use NASA's official `earthaccess` library.
+This guide helps you migrate from NASADEM v1.x to v2.x, which modernizes the package to use NASA's official `earthaccess` library.
 
 ## What Changed?
 
@@ -9,7 +9,7 @@ This guide helps you migrate from NASADEM v1.x to v2.0.0, which modernizes the p
 1. **Authentication**: Now uses `earthaccess` instead of custom authentication
 2. **Removed Parameters**: `remote`, `offline_ok`, `enforce_checksum` no longer used
 3. **Dependency Changes**: Replaced `xmltodict` with `earthaccess`, added `numpy`, `shapely`
-4. **Internal Changes**: `LPDAACDataPool` class removed (deprecated)
+4. **Internal Changes**: `LPDAACDataPool` class removed
 
 ### What Stays the Same?
 
@@ -42,7 +42,7 @@ nasadem = NASADEMConnection(
 )
 ```
 
-**After (v2.0):**
+**After (v2.0+):**
 
 **Option A: Use .netrc file (Recommended)**
 ```bash
@@ -125,70 +125,12 @@ nasadem = NASADEMConnection(
 granule = nasadem.download_tile("n34w118", enforce_checksum=True)  # REMOVE enforce_checksum
 ```
 
-**After (v2.0):**
+**After (v2.0+):**
 ```python
 nasadem = NASADEMConnection()
 # earthaccess handles URLs, connectivity, and validation automatically
 
 granule = nasadem.download_tile("n34w118")
-```
-
-## Common Migration Scenarios
-
-### Scenario 1: Script with Hardcoded Credentials
-
-**Before:**
-```python
-from NASADEM import NASADEMConnection
-
-nasadem = NASADEMConnection(
-    username="user",
-    password="pass"
-)
-elevation = nasadem.elevation_m(geometry)
-```
-
-**After:**
-```python
-from NASADEM import NASADEMConnection
-
-# Best practice: Use .netrc or environment variables
-nasadem = NASADEMConnection()
-elevation = nasadem.elevation_m(geometry)
-```
-
-### Scenario 2: Using Default Global Instance
-
-This works exactly the same:
-
-```python
-from NASADEM import NASADEM
-
-# Works in both v1.x and v2.0
-elevation = NASADEM.elevation_m(geometry)
-swb = NASADEM.swb(geometry)
-```
-
-### Scenario 3: Custom Download Directory
-
-```python
-# Works the same in both versions
-from NASADEM import NASADEMConnection
-
-nasadem = NASADEMConnection(
-    download_directory="~/my_data/nasadem"
-)
-```
-
-### Scenario 4: Point Extraction
-
-```python
-from NASADEM import NASADEM
-from rasters import Point
-
-# Works the same in both versions
-point = Point(-118.0, 34.0)
-elevation = NASADEM.elevation_m(point)
 ```
 
 ## Troubleshooting
@@ -210,62 +152,10 @@ earthaccess.login(persist=True)  # Interactive setup
 
 ### Error: "LPDAACDataPool has no attribute..."
 
-**Solution:** Remove references to `LPDAACDataPool`. It's no longer used in v2.0.
-
-**Before:**
-```python
-from NASADEM.LPDAACDataPool import LPDAACDataPool
-```
-
-**After:**
-```python
-# Don't import LPDAACDataPool - use NASADEMConnection instead
-from NASADEM import NASADEMConnection
-```
-
-### Downloads are slow or timing out
-
-**Solution:** This should be improved in v2.0 with `earthaccess`. If problems persist:
-- Check NASA Earthdata system status: https://status.earthdata.nasa.gov/
-- Verify your internet connection
-- Try again later (may be temporary server issues)
-
-## Testing Your Migration
-
-After migrating, test with this simple script:
-
-```python
-from NASADEM import NASADEM
-from rasters import Point
-
-# Test point extraction
-point = Point(-118.0, 34.0)
-elevation = NASADEM.elevation_m(point)
-print(f"Elevation at ({point.x}, {point.y}): {elevation:.1f} m")
-
-# If this works, your migration is successful!
-```
-
-## Benefits of v2.0
-
-- ✅ **More Reliable**: Uses NASA's official infrastructure
-- ✅ **Better Error Handling**: Automatic retries and clear error messages
-- ✅ **Cloud-Optimized**: Direct access to NASA Earthdata Cloud
-- ✅ **Actively Maintained**: `earthaccess` is officially supported by NASA
-- ✅ **Simpler Authentication**: Multiple options, no URL management needed
+**Solution:** Remove references to `LPDAACDataPool`. It was removed in v2.0.0.
 
 ## Need Help?
 
-- **Documentation**: See the [README.md](README.md) for full documentation
-- **Issues**: Report bugs at https://github.com/gregory-halverson/NASADEM/issues
-- **Changelog**: See [CHANGELOG.md](CHANGELOG.md) for detailed changes
-
-## Rollback (If Needed)
-
-If you need to temporarily use v1.x:
-
-```bash
-pip install NASADEM==1.5.0
-```
-
-However, note that v1.x may stop working as NASA updates their infrastructure.
+- **Documentation**: See the [README.md](../README.md) for full documentation
+- **Issues**: Report bugs at https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM/issues
+- **Changelog**: See [Changelog.md](Changelog.md) for detailed changes

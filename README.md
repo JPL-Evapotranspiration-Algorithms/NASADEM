@@ -13,10 +13,10 @@ NASA Jet Propulsion Laboratory 329G
 - 🚀 **Modern Data Access**: Uses NASA's official `earthaccess` package (`v2.0.0+`)
 - ⚡ **Optimized Point Queries**: Tile-grouped point and multipoint extraction with direct pixel indexing (`v2.0.1+`)
 - 📐 **Updated Raster Interface**: Bumped `rasters>=1.17.1` for improved bounding box handling (`v2.1.0`)
+- 🛠️ **Hardened Geometry & Downloads**: Normalized `MultiPoint` extraction, exact integer bounding-box tile bounds, and streamlined dependencies (`v2.2.0`)
 - ✅ **Reliable Downloads**: Built-in retry logic and error handling via `earthaccess`
 - ☁️ **Cloud-Optimized**: Direct access to NASA Earthdata Cloud
 - 🔐 **Simplified Authentication**: Multiple authentication options (`.netrc`, environment variables, interactive)
-- 🗑️ **Removed Legacy Code**: Removed deprecated LP DAAC HTTP scraping and custom checksum routines
 
 ## Installation
 
@@ -27,7 +27,7 @@ pip install NASADEM
 Or install from source:
 
 ```bash
-git clone [https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git](https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git)
+git clone https://github.com/JPL-Evapotranspiration-Algorithms/NASADEM.git
 cd NASADEM
 pip install -e .
 ```
@@ -204,6 +204,7 @@ Examples:
 
 | Version | Release Date | Summary |
 | :--- | :--- | :--- |
+| **v2.2.0** | 2026-11-20 | Normalized `MultiPoint` extraction, fixed `Path` comparison and integer bbox tile boundaries, cleaned up dependencies |
 | **v2.1.0** | 2026-01-13 | Fixed bounding box handling by updating `rasters>=1.17.1` |
 | **v2.0.1** | 2025-12-19 | Fixed single-point `elevation_m()` routing and optimized multi-point extraction via tile grouping |
 | **v2.0.0** | 2025-12-19 | Major rewrite replacing LP DAAC HTTP scraping with NASA's `earthaccess` package |
@@ -217,15 +218,6 @@ Examples:
 | **v1.0.1** | 2025-03-19 | Initial release |
 
 See [notes/2026-11-20 NASADEM repository history.md](notes/2026-11-20%20NASADEM%20repository%20history.md) for the full commit-level development timeline.
-
-## Known Issues
-
-- **`MultiPoint` Coordinate Extraction**: `_extract_point_values()` iterates over `geometry.geoms`, which can vary depending on how `rasters.MultiPoint` is instantiated (`MultiPoint(x=..., y=...)` vs. coordinate tuples).
-- **Redundant File Move on Download**: `download_tile()` compares `pathlib.Path` objects returned by `earthaccess.download()` against `str` paths, causing `shutil.move()` to run even when the destination path already matches.
-- **Exact Integer Bounding Box Boundaries**: `tiles_intersecting_bbox()` uses `int(np.floor(max_coord)) + 1`, which includes an extra adjacent 1°×1° tile when `lon_max` or `lat_max` falls on an exact integer degree boundary.
-- **Packaging Dependencies**: `ECOv002_calval_tables` and unused `sentinel-tiles` are currently declared in core `[project] dependencies` in `pyproject.toml` rather than optional/dev dependencies.
-
-See [notes/2026-11-20 known issues.md](notes/2026-11-20%20known%20issues.md) for the full issue tracker and remediation details.
 
 ## Migration from v1.x
 
@@ -243,7 +235,7 @@ from NASADEM import NASADEMConnection
 nasadem = NASADEMConnection(
     username="user",
     password="pass",
-    remote="[https://e4ftl01.cr.usgs.gov](https://e4ftl01.cr.usgs.gov)"  # Old URL
+    remote="https://e4ftl01.cr.usgs.gov"  # Old URL
 )
 ```
 
@@ -292,11 +284,12 @@ See [LICENSE](LICENSE) file.
 
 ## Documentation
 
-- [Migration Guide](docs/Migration-Guide.md) - How to upgrade from v1.x to v2.0.0
+- [Migration Guide](docs/Migration-Guide.md) - How to upgrade from v1.x to v2.x
 - [Changelog](docs/Changelog.md) - Version history and changes
 - [Release Summary](docs/Release-Summary.md) - Detailed v2.0.0 release notes
 - [Repository History](notes/2026-11-20%20NASADEM%20repository%20history.md) - Full development and release timeline
-- [Known Issues](notes/2026-11-20%20known%20issues.md) - Current bugs, packaging items, and technical debt
+- [Development Plan](notes/2026-11-20%20NASADEM%20development%20plan.md) - Engineering roadmap through v2.2.0
+- [Known Issues](notes/2026-11-20%20known%20issues.md) - Audit log of bugs, packaging items, and technical debt
 
 ## Contributing
 

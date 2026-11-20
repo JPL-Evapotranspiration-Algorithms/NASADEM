@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "NASADEM"
-version = "2.1.0"
+version = "2.2.0"
 description = "Shuttle Radar Topography Mission (SRTM) Digital Elevation Model (DEM) search and download utility"
 readme = "README.md"
 authors = [
@@ -17,10 +17,8 @@ classifiers = [
 dependencies = [
     "colored-logging",
     "earthaccess>=0.8.0",
-    "ECOv002_calval_tables",
     "numpy",
     "rasters>=1.17.1",
-    "sentinel-tiles",
     "shapely"
 ]
 
@@ -29,10 +27,11 @@ requires-python = ">=3.10"
 [project.optional-dependencies]
 dev = [
     "build",
+    "ECOv002_calval_tables",
+    "jupyter",
     "pytest>=6.0",
     "pytest-cov",
-    "jupyter",
-    "pytest",
+    "ruff",
     "tox",
     "twine"
 ]
@@ -42,7 +41,7 @@ dev = [
 
 [tool.setuptools.packages.find]
 include = ["NASADEM"]
-exclude = ["notebooks", "notebooks.*", "debug", "debug.*", "docs", "docs.*", "tests", "tests.*"]
+exclude = ["notebooks", "notebooks.*", "debug", "debug.*", "docs", "docs.*", "notes", "notes.*", "tests", "tests.*"]
 
 [tool.pytest.ini_options]
 markers = [
